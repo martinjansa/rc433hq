@@ -36,6 +36,6 @@ unsigned long millis() {
   return secs*1000;
 }
 
-#include "advanced.ino"
+#include "rc433hq_tests.ino"
 
 #endif

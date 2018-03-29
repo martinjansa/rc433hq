@@ -1,4 +1,5 @@
 #line 2 "rc433hq_tests.ino"
+#include <string.h>
 #include <ArduinoUnit.h>
 
 // dummy test case
