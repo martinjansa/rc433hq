@@ -1,5 +1,6 @@
 #include "rc433hq.h"
 
+#include <string.h>
 
 void NoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
 {
@@ -70,28 +71,53 @@ void RC433BasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool direc
                     // send the data to the data receiver
                     dataReceiver.HandleData(receivedData, receivedBits);
                     syncDetected = false;
-                    receivedBits = 0;
+                    ClearReceivedBits();
                 }
 
             } else {
 
-                // if the sync pulse was detected
-                if (highDuration == syncFirstUs && lowDuration == syncSecondUs) {
+                // if the last pulse represented a 1
+                if (syncDetected && highDuration == zeroFirstUs && lowDuration == zeroSecondUs) {
 
-                    LogMessage("Sync pulse deteceted.\n");
+                    LogMessage("Sync detected and pulse represents bit 0.\n");
+
+                    // store the bit
+                    StoreReceivedBit(0);
+
+                    // if we reached the higher limit of the received bit
+                    if (receivedBits == maxBits) {
+
+                        LogMessage("Max bits received, sending data.\n");
+
+                        // send the data to the data receiver
+                        dataReceiver.HandleData(receivedData, receivedBits);
+                        syncDetected = false;
+                        ClearReceivedBits();
+                    }
+
+                } else {
+
+                    // no data pulse was detected
 
                     // if some data were received before and is above the minimal length
                     if (receivedBits >= minBits) {
 
-                        LogMessage("Min bits received before sync, sending data.\n");
+                        LogMessage("Min bits received before non data pulse, sending data.\n");
 
                         // send the data to the data receiver
                         dataReceiver.HandleData(receivedData, receivedBits);
+                        ClearReceivedBits();
                     }
 
-                    // start a new sequence after the successfull sync
-                    syncDetected = true;
-                    receivedBits = 0;
+                    // if the sync pulse was detected
+                    if (highDuration == syncFirstUs && lowDuration == syncSecondUs) {
+
+                        LogMessage("Sync pulse deteceted.\n");
+
+                        // start a new sequence after the successfull sync
+                        syncDetected = true;
+                        ClearReceivedBits();
+                    }
                 }
             }
         }	
@@ -110,6 +136,12 @@ void RC433BasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool direc
         previousFallingEdge = true;
         previousFallingEdgeTime = time;
     }
+}
+
+void RC433BasicSyncPulseDecoder::ClearReceivedBits()
+{
+    memset(receivedData, 0, RC433HQ_MAX_PULSE_BITS >> 3);
+    receivedBits = 0;
 }
 
 void RC433BasicSyncPulseDecoder::StoreReceivedBit(byte bit)

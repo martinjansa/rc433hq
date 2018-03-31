@@ -137,7 +137,7 @@ test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
 }
 
-test(BasicPulseDecodeShouldDecodeOneExactOneBitFollowedBySync)
+test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
@@ -146,13 +146,123 @@ test(BasicPulseDecodeShouldDecodeOneExactOneBitFollowedBySync)
   decoder.SetLogger(logger);
 
   // when
-  decoder.HandleEdge(0, true);
-  decoder.HandleEdge(40, false);
-  decoder.HandleEdge(80, true);
-  decoder.HandleEdge(110, false);
-  decoder.HandleEdge(120, true);
-  decoder.HandleEdge(160, false);
-  decoder.HandleEdge(200, true);
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(110, false); // value 1
+  decoder.HandleEdge(120, true);  // sync start
+  decoder.HandleEdge(160, false); // sync
+  decoder.HandleEdge(200, true);  // end of sync
+  
+  // then
+  byte expected[] = { 0x01 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen1)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(90, false); // value 0
+  decoder.HandleEdge(120, true);  // sync start
+  decoder.HandleEdge(160, false); // sync
+  decoder.HandleEdge(200, true);  // end of sync
+  
+  // then
+  byte expected[] = { 0x00 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen2)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(110, false); // value 1
+  decoder.HandleEdge(120, true);  // sync start
+  decoder.HandleEdge(160, false); // sync
+  decoder.HandleEdge(200, true);  // end of sync
+  
+  // then
+  byte expected[] = { 0x01 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen2)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(90, false); // value 0
+  decoder.HandleEdge(120, true);  // sync start
+  decoder.HandleEdge(160, false); // sync
+  decoder.HandleEdge(200, true);  // end of sync
+  
+  // then
+  byte expected[] = { 0x00 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen1)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(110, false); // value 1
+  decoder.HandleEdge(120, true);  // invalid pulse start
+  decoder.HandleEdge(110, false); // invalid pulse
+  decoder.HandleEdge(120, true);  // end of invalid pulse
+  
+  // then
+  byte expected[] = { 0x01 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen2)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(110, false); // value 1
+  decoder.HandleEdge(120, true);  // invalid pulse start
+  decoder.HandleEdge(110, false); // invalid pulse
+  decoder.HandleEdge(120, true);  // end of invalid pulse
   
   // then
   byte expected[] = { 0x01 };

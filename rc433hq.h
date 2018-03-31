@@ -93,7 +93,9 @@ public:
 		receivedBits(0),
 		previousRisingEdge(false),
 		previousFallingEdge(false)
-	{}
+	{
+		ClearReceivedBits();
+	}
 
 	void SetLogger(IRC433Logger &alogger)
 	{ 
@@ -110,5 +112,6 @@ public:
 	virtual void HandleEdge(RC433HQMilliseconds time, bool drection);
 
 protected:
+	void ClearReceivedBits();
 	void StoreReceivedBit(byte bit);
 };
