@@ -24,11 +24,32 @@ public:
  */
 class IRC433PulseDecoder {
 public:
-	virtual void HandleEdge(bool high, word duration) = 0;
+	virtual void HandleEdge(unsigned long time, bool direction) = 0;
 };
+
+/** \brief NoiseFilter implements the IRC433PulseDecoder, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
+ */
+class NoiseFilter: public IRC433PulseDecoder {
+private:
+	IRC433PulseDecoder &decoder;
+	unsigned long minPulseDuration;
+	bool lastEdgeValid;
+	unsigned long lastEdgeTime;
+	bool lastEdgeDirection;
+public:
+	NoiseFilter(IRC433PulseDecoder &adecoder, unsigned long aminPulseDuration):
+		decoder(adecoder), 
+		minPulseDuration(aminPulseDuration), 
+		lastEdgeValid(false) 
+	{
+	}
+	virtual void HandleEdge(unsigned long time, bool direction);
+};
+
 
 /** \brief Basic sync protocol decoder
  */
+/*
 class RC433BasicSyncPulseDecoder: public IRC433PulseDecoder {
 private:
 	IRC433DataReceiver &dataReceiver;
@@ -49,5 +70,6 @@ public:
 		minBits(aminBits), maxBits(amaxBits)
 	{}
 	
-	virtual void HandleEdge(bool high, word duration);
+	virtual void HandleEdge(unsigned long time, bool drection);
 };
+*/
