@@ -321,6 +321,82 @@ test(BasicPulseDecoderShouldDecode16ExactOneBitsFollowedByInvalidSignalForMaxLen
   dataReceiverMock.AssertHandleDataCalled(expected, 16);
 }
 
+test(BasicPulseDecoderShouldDecode16ExactZeroBitsFollowedByInvalidSignalForMaxLen24)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(90, false);  // value 0
+  decoder.HandleEdge(120, true);  // 2nd bit start
+  decoder.HandleEdge(130, false); // value 0
+  decoder.HandleEdge(160, true);  // 3rd bit start
+  decoder.HandleEdge(170, false); // value 0
+  decoder.HandleEdge(200, true);  // 4th bit start
+  decoder.HandleEdge(210, false); // value 0
+  decoder.HandleEdge(240, true);  // 5th bit start
+  decoder.HandleEdge(250, false); // value 0
+  decoder.HandleEdge(280, true);  // 6th bit start
+  decoder.HandleEdge(290, false); // value 0
+  decoder.HandleEdge(320, true);  // 7th bit start
+  decoder.HandleEdge(330, false); // value 0
+  decoder.HandleEdge(360, true);  // 8th bit start
+  decoder.HandleEdge(370, false); // value 0
+  decoder.HandleEdge(400, true);  // 9th bit start
+  decoder.HandleEdge(410, false); // value 0
+  decoder.HandleEdge(440, true);  // 10th bit start
+  decoder.HandleEdge(450, false); // value 0
+  decoder.HandleEdge(480, true);  // 11th bit start
+  decoder.HandleEdge(490, false); // value 0
+  decoder.HandleEdge(520, true);  // 12th bit start
+  decoder.HandleEdge(530, false); // value 0
+  decoder.HandleEdge(560, true);  // 13th bit start
+  decoder.HandleEdge(570, false); // value 0
+  decoder.HandleEdge(600, true);  // 14th bit start
+  decoder.HandleEdge(610, false); // value 0
+  decoder.HandleEdge(640, true);  // 15th bit start
+  decoder.HandleEdge(650, false); // value 0
+  decoder.HandleEdge(680, true);  // 15th bit start
+  decoder.HandleEdge(690, false); // value 0
+  decoder.HandleEdge(720, true);  // invalid pulse start
+  decoder.HandleEdge(730, false); // invalid pulse
+  decoder.HandleEdge(740, true);  // end of invalid pulse
+  
+  // then
+  byte expected[] = { 0x00, 0x00 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 16);
+}
+
+test(BasicPulseDecoderShouldInoreExact2OneBitsFollowedByInvalidSignalForMinLen3)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 3, 3);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(110, false); // value 1
+  decoder.HandleEdge(120, true);   // 2nd bit start
+  decoder.HandleEdge(150, false); // value 1
+  decoder.HandleEdge(160, true);  // invalid pulse start
+  decoder.HandleEdge(170, false); // invalid pulse
+  decoder.HandleEdge(180, true);  // end of invalid pulse
+  
+  // then
+  byte expected[] = { 0x00 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 0);
+}
+
 void setup()
 {
   Serial.begin(9600);
