@@ -73,7 +73,7 @@ public:
   void AssertHandleDataCalled(const byte *expectedData, size_t expectedBits)
   {
     assertEqual(storedBitsCount, expectedBits);
-    for (size_t i = 0; i < storedBitsCount; i++) {
+    for (size_t i = 0; i < (storedBitsCount >> 3); i++) {
       assertEqual(storedData[i], expectedData[i]);
     }
   }
@@ -267,6 +267,58 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen2)
   // then
   byte expected[] = { 0x01 };
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoderShouldDecode16ExactOneBitsFollowedByInvalidSignalForMaxLen24)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
+  Logger logger;
+  decoder.SetLogger(logger);
+
+  // when
+  decoder.HandleEdge(0, true);    // sync start
+  decoder.HandleEdge(40, false);  // sync
+  decoder.HandleEdge(80, true);   // 1st bit start
+  decoder.HandleEdge(110, false); // value 1
+  decoder.HandleEdge(120, true);  // 2nd bit start
+  decoder.HandleEdge(150, false); // value 1
+  decoder.HandleEdge(160, true);  // 3rd bit start
+  decoder.HandleEdge(190, false); // value 1
+  decoder.HandleEdge(200, true);  // 4th bit start
+  decoder.HandleEdge(230, false); // value 1
+  decoder.HandleEdge(240, true);  // 5th bit start
+  decoder.HandleEdge(270, false); // value 1
+  decoder.HandleEdge(280, true);  // 6th bit start
+  decoder.HandleEdge(310, false); // value 1
+  decoder.HandleEdge(320, true);  // 7th bit start
+  decoder.HandleEdge(350, false); // value 1
+  decoder.HandleEdge(360, true);  // 8th bit start
+  decoder.HandleEdge(390, false); // value 1
+  decoder.HandleEdge(400, true);  // 9th bit start
+  decoder.HandleEdge(430, false); // value 1
+  decoder.HandleEdge(440, true);  // 10th bit start
+  decoder.HandleEdge(470, false); // value 1
+  decoder.HandleEdge(480, true);  // 11th bit start
+  decoder.HandleEdge(510, false); // value 1
+  decoder.HandleEdge(520, true);  // 12th bit start
+  decoder.HandleEdge(550, false); // value 1
+  decoder.HandleEdge(560, true);  // 13th bit start
+  decoder.HandleEdge(590, false); // value 1
+  decoder.HandleEdge(600, true);  // 14th bit start
+  decoder.HandleEdge(630, false); // value 1
+  decoder.HandleEdge(640, true);  // 15th bit start
+  decoder.HandleEdge(670, false); // value 1
+  decoder.HandleEdge(680, true);  // 15th bit start
+  decoder.HandleEdge(710, false); // value 1
+  decoder.HandleEdge(720, true);  // invalid pulse start
+  decoder.HandleEdge(730, false); // invalid pulse
+  decoder.HandleEdge(740, true);  // end of invalid pulse
+  
+  // then
+  byte expected[] = { 0xff, 0xff };
+  dataReceiverMock.AssertHandleDataCalled(expected, 16);
 }
 
 void setup()
