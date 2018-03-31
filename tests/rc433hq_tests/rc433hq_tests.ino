@@ -94,6 +94,21 @@ test(NoiseFilterShouldElimitateNoiseBeforeDownEdge)
   mock. AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
 }
 
+test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
+{  
+  PulseDecoderMock mock;
+
+  NoiseFilter filter(mock, 3);
+  filter.HandleEdge(0, true);
+  filter.HandleEdge(5, false); // noise 
+  filter.HandleEdge(10, false);
+  filter.HandleEdge(20, true);
+  filter.HandleEdge(30, false);
+
+  unsigned long expectedTimes[] = { 0, 10, 20 };
+  bool expectedEdges[] = { true, false, true};
+  mock. AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
+}
 
 void setup()
 {

@@ -13,6 +13,16 @@ void NoiseFilter::HandleEdge(unsigned long time, bool direction)
     // if we have some edge in the memory
 	if (lastEdgeValid) {
 
+        // if this edge in the same direction as the last edge
+        if (lastEdgeDirection == direction) {
+
+            // ignore the first edge, keep the currect edge in the memory and quit
+            lastEdgeTime = time;
+            lastEdgeDirection = direction;
+            lastEdgeValid = true;
+            return;
+        }
+
         // calculate the duration of the last pulse
         unsigned long duration = (time - lastEdgeTime);
 
@@ -23,7 +33,7 @@ void NoiseFilter::HandleEdge(unsigned long time, bool direction)
             lastEdgeValid = false;
             return;
         }
-        
+
         // send the last edge into the connected decoder
         decoder.HandleEdge(lastEdgeTime, lastEdgeDirection);
     }
