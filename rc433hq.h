@@ -4,6 +4,7 @@
 #	include <Arduino.h>
 #else
 #	include <stdint.h>
+#	include <stddef.h>
 #	define byte uint8_t
 #	define word uint16_t
 #endif // defined(ARDUINO)
@@ -12,11 +13,21 @@
   @file rc433hq.h
 */
 
+typedef unsigned long RC433HQMilliseconds;
+
+/** \brief Logger interface responsible writing log messages
+ */
+class IRC433Logger {
+public:
+	virtual void LogMessage(const char *message) = 0;
+	
+};
+
 /** \brief Data handler interface responsible for decoding of the binary data into information packets
  */
 class IRC433DataReceiver {
 public:
-	virtual void HandleData(const byte *data, word bits) = 0;
+	virtual void HandleData(const byte *data, size_t bits) = 0;
 	
 };
 
@@ -24,7 +35,7 @@ public:
  */
 class IRC433PulseDecoder {
 public:
-	virtual void HandleEdge(unsigned long time, bool direction) = 0;
+	virtual void HandleEdge(RC433HQMilliseconds time, bool direction) = 0;
 };
 
 /** \brief NoiseFilter implements the IRC433PulseDecoder, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
@@ -32,34 +43,44 @@ public:
 class NoiseFilter: public IRC433PulseDecoder {
 private:
 	IRC433PulseDecoder &decoder;
-	unsigned long minPulseDuration;
+	RC433HQMilliseconds minPulseDuration;
 	bool lastEdgeValid;
-	unsigned long lastEdgeTime;
+	RC433HQMilliseconds lastEdgeTime;
 	bool lastEdgeDirection;
 public:
-	NoiseFilter(IRC433PulseDecoder &adecoder, unsigned long aminPulseDuration):
+	NoiseFilter(IRC433PulseDecoder &adecoder, RC433HQMilliseconds aminPulseDuration):
 		decoder(adecoder), 
 		minPulseDuration(aminPulseDuration), 
 		lastEdgeValid(false) 
 	{
 	}
-	virtual void HandleEdge(unsigned long time, bool direction);
+	virtual void HandleEdge(RC433HQMilliseconds time, bool direction);
 };
 
+static const size_t RC433HQ_MAX_PULSE_BITS = 128;
 
 /** \brief Basic sync protocol decoder
  */
-/*
 class RC433BasicSyncPulseDecoder: public IRC433PulseDecoder {
 private:
 	IRC433DataReceiver &dataReceiver;
+	IRC433Logger *logger;
 	word syncFirstUs, syncSecondUs, zeroFirstUs, zeroSecondUs, oneFirstUs, oneSecondUs;
 	bool highFirst;
 	word minBits, maxBits;
+	bool syncDetected;
+	byte receivedData[RC433HQ_MAX_PULSE_BITS / 8];
+	size_t receivedBits;
+	bool previousRisingEdge;
+	RC433HQMilliseconds previousRisingEdgeTime;
+	bool previousFallingEdge;
+	RC433HQMilliseconds previousFallingEdgeTime;
+
 	
 public:	
 	RC433BasicSyncPulseDecoder(IRC433DataReceiver &adataReceiver, word asyncFirstUs, word asyncSecondUs, word azeroFirstUs, word azeroSecondUs, word aoneFirstUs, word aoneSecondUs, bool ahighFirst, word aminBits, word amaxBits):
 		dataReceiver(adataReceiver),
+		logger(0),
 		syncFirstUs(asyncFirstUs),
 		syncSecondUs(asyncSecondUs), 
 		zeroFirstUs(azeroFirstUs), 
@@ -67,9 +88,27 @@ public:
 		oneFirstUs(aoneFirstUs), 
 		oneSecondUs(aoneSecondUs), 
 		highFirst(ahighFirst),
-		minBits(aminBits), maxBits(amaxBits)
+		minBits(aminBits), maxBits(amaxBits),
+		syncDetected(false),
+		receivedBits(0),
+		previousRisingEdge(false),
+		previousFallingEdge(false)
 	{}
+
+	void SetLogger(IRC433Logger &alogger)
+	{ 
+		logger = &alogger;
+	}
+
+	void LogMessage(const char *message)
+	{ 
+		if (logger) {
+			logger->LogMessage(message);
+		}
+	}
 	
-	virtual void HandleEdge(unsigned long time, bool drection);
+	virtual void HandleEdge(RC433HQMilliseconds time, bool drection);
+
+protected:
+	void StoreReceivedBit(byte bit);
 };
-*/
