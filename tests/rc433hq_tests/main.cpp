@@ -15,7 +15,7 @@ int main() {
   gettimeofday(&starttime, NULL);
   srand(time(0));
   setup();
-  for (;;) loop();
+  for (int i = 0; i < 2; i++) loop();
   return 0;
 }
 
