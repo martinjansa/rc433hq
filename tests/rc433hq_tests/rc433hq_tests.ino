@@ -17,6 +17,37 @@ public:
 };
 
 
+class TestingPulseGenerator {
+private:
+  IRC433PulseDecoder &decoder;
+  RC433HQMilliseconds lastPulseStart;
+public:
+  TestingPulseGenerator(IRC433PulseDecoder &adecoder):
+    decoder(adecoder),
+    lastPulseStart(0)
+  {
+  }
+
+  void SendEdge(bool high, RC433HQMilliseconds delayAfter)
+  {
+    decoder.HandleEdge(lastPulseStart, high);
+    lastPulseStart += delayAfter;
+  }
+
+  void GeneratePulse(RC433HQMilliseconds highDuration, RC433HQMilliseconds lowDuration)
+  {
+    SendEdge(true, highDuration);
+    SendEdge(false, lowDuration);
+  }
+
+  void GeneratePulses(RC433HQMilliseconds highDuration, RC433HQMilliseconds lowDuration, size_t count)
+  {
+    for (size_t i = 0; i < count; i++) {
+      GeneratePulse(highDuration, lowDuration);
+    }
+  }
+};
+
 class PulseDecoderMock: public IRC433PulseDecoder {
 private:
   RC433HQMilliseconds times[8];
@@ -85,12 +116,10 @@ test(NoiseFilterShouldForwardSlowPulse)
   // given
   PulseDecoderMock mock;
   NoiseFilter filter(mock, 3);
+  TestingPulseGenerator generator(filter);
 
   // when
-  filter.HandleEdge(0, true);
-  filter.HandleEdge(10, false);
-  filter.HandleEdge(20, true);
-  filter.HandleEdge(30, false);
+  generator.GeneratePulses(10, 10, 2);
 
   // then
   RC433HQMilliseconds expectedTimes[] = { 0, 10, 20 };
@@ -103,14 +132,14 @@ test(NoiseFilterShouldElimitateNoiseBeforeDownEdge)
   // given
   PulseDecoderMock mock;
   NoiseFilter filter(mock, 3);
+  TestingPulseGenerator generator(filter);
 
   // when
-  filter.HandleEdge(0, true);
-  filter.HandleEdge(9, false); // noise 
-  filter.HandleEdge(9, true);  // noise 
-  filter.HandleEdge(10, false);
-  filter.HandleEdge(20, true);
-  filter.HandleEdge(30, false);
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 0); // noise 
+  generator.SendEdge(true, 1);  // noise 
+  generator.SendEdge(false, 10);
+  generator.GeneratePulse(10, 10);
 
   // then
   RC433HQMilliseconds expectedTimes[] = { 0, 10, 20 };
@@ -123,13 +152,13 @@ test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
   // given
   PulseDecoderMock mock;
   NoiseFilter filter(mock, 3);
+  TestingPulseGenerator generator(filter);
 
   // when
-  filter.HandleEdge(0, true);
-  filter.HandleEdge(5, false); // noise 
-  filter.HandleEdge(10, false);
-  filter.HandleEdge(20, true);
-  filter.HandleEdge(30, false);
+  generator.SendEdge(true, 5);
+  generator.SendEdge(false, 5); // noise 
+  generator.SendEdge(false, 10);
+  generator.GeneratePulse(10, 10);
 
   // then
   RC433HQMilliseconds expectedTimes[] = { 0, 10, 20 };
@@ -144,15 +173,13 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen1)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(110, false); // value 1
-  decoder.HandleEdge(120, true);  // sync start
-  decoder.HandleEdge(160, false); // sync
-  decoder.HandleEdge(200, true);  // end of sync
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulse(30, 10);      // bit 1
+  generator.GeneratePulse(40, 40);      // sync
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x01 };
@@ -166,15 +193,13 @@ test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen1)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(90, false); // value 0
-  decoder.HandleEdge(120, true);  // sync start
-  decoder.HandleEdge(160, false); // sync
-  decoder.HandleEdge(200, true);  // end of sync
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulse(10, 30);      // bit 0
+  generator.GeneratePulse(40, 40);      // sync
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x00 };
@@ -188,15 +213,13 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen2)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(110, false); // value 1
-  decoder.HandleEdge(120, true);  // sync start
-  decoder.HandleEdge(160, false); // sync
-  decoder.HandleEdge(200, true);  // end of sync
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulse(30, 10);      // bit 1
+  generator.GeneratePulse(40, 40);      // sync
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x01 };
@@ -210,15 +233,13 @@ test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen2)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(90, false); // value 0
-  decoder.HandleEdge(120, true);  // sync start
-  decoder.HandleEdge(160, false); // sync
-  decoder.HandleEdge(200, true);  // end of sync
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulse(10, 30);      // bit 0
+  generator.GeneratePulse(40, 40);      // sync
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x00 };
@@ -232,16 +253,14 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen1)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(110, false); // value 1
-  decoder.HandleEdge(120, true);  // invalid pulse start
-  decoder.HandleEdge(110, false); // invalid pulse
-  decoder.HandleEdge(120, true);  // end of invalid pulse
-  
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulse(30, 10);      // bit 1
+  generator.GeneratePulse(10, 10);      // invalid pulse
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
+
   // then
   byte expected[] = { 0x01 };
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
@@ -254,15 +273,13 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen2)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(110, false); // value 1
-  decoder.HandleEdge(120, true);  // invalid pulse start
-  decoder.HandleEdge(110, false); // invalid pulse
-  decoder.HandleEdge(120, true);  // end of invalid pulse
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulse(30, 10);      // bit 1
+  generator.GeneratePulse(10, 10);      // invalid pulse
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x01 };
@@ -276,45 +293,13 @@ test(BasicPulseDecoderShouldDecode16ExactOneBitsFollowedByInvalidSignalForMaxLen
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(110, false); // value 1
-  decoder.HandleEdge(120, true);  // 2nd bit start
-  decoder.HandleEdge(150, false); // value 1
-  decoder.HandleEdge(160, true);  // 3rd bit start
-  decoder.HandleEdge(190, false); // value 1
-  decoder.HandleEdge(200, true);  // 4th bit start
-  decoder.HandleEdge(230, false); // value 1
-  decoder.HandleEdge(240, true);  // 5th bit start
-  decoder.HandleEdge(270, false); // value 1
-  decoder.HandleEdge(280, true);  // 6th bit start
-  decoder.HandleEdge(310, false); // value 1
-  decoder.HandleEdge(320, true);  // 7th bit start
-  decoder.HandleEdge(350, false); // value 1
-  decoder.HandleEdge(360, true);  // 8th bit start
-  decoder.HandleEdge(390, false); // value 1
-  decoder.HandleEdge(400, true);  // 9th bit start
-  decoder.HandleEdge(430, false); // value 1
-  decoder.HandleEdge(440, true);  // 10th bit start
-  decoder.HandleEdge(470, false); // value 1
-  decoder.HandleEdge(480, true);  // 11th bit start
-  decoder.HandleEdge(510, false); // value 1
-  decoder.HandleEdge(520, true);  // 12th bit start
-  decoder.HandleEdge(550, false); // value 1
-  decoder.HandleEdge(560, true);  // 13th bit start
-  decoder.HandleEdge(590, false); // value 1
-  decoder.HandleEdge(600, true);  // 14th bit start
-  decoder.HandleEdge(630, false); // value 1
-  decoder.HandleEdge(640, true);  // 15th bit start
-  decoder.HandleEdge(670, false); // value 1
-  decoder.HandleEdge(680, true);  // 15th bit start
-  decoder.HandleEdge(710, false); // value 1
-  decoder.HandleEdge(720, true);  // invalid pulse start
-  decoder.HandleEdge(730, false); // invalid pulse
-  decoder.HandleEdge(740, true);  // end of invalid pulse
+  generator.GeneratePulse(40, 40);       // sync
+  generator.GeneratePulses(30, 10, 16);  // 16x bit 1
+  generator.GeneratePulse(10, 10);       // invalid pulse
+  generator.SendEdge(true, 0);           // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0xff, 0xff };
@@ -328,45 +313,13 @@ test(BasicPulseDecoderShouldDecode16ExactZeroBitsFollowedByInvalidSignalForMaxLe
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(90, false);  // value 0
-  decoder.HandleEdge(120, true);  // 2nd bit start
-  decoder.HandleEdge(130, false); // value 0
-  decoder.HandleEdge(160, true);  // 3rd bit start
-  decoder.HandleEdge(170, false); // value 0
-  decoder.HandleEdge(200, true);  // 4th bit start
-  decoder.HandleEdge(210, false); // value 0
-  decoder.HandleEdge(240, true);  // 5th bit start
-  decoder.HandleEdge(250, false); // value 0
-  decoder.HandleEdge(280, true);  // 6th bit start
-  decoder.HandleEdge(290, false); // value 0
-  decoder.HandleEdge(320, true);  // 7th bit start
-  decoder.HandleEdge(330, false); // value 0
-  decoder.HandleEdge(360, true);  // 8th bit start
-  decoder.HandleEdge(370, false); // value 0
-  decoder.HandleEdge(400, true);  // 9th bit start
-  decoder.HandleEdge(410, false); // value 0
-  decoder.HandleEdge(440, true);  // 10th bit start
-  decoder.HandleEdge(450, false); // value 0
-  decoder.HandleEdge(480, true);  // 11th bit start
-  decoder.HandleEdge(490, false); // value 0
-  decoder.HandleEdge(520, true);  // 12th bit start
-  decoder.HandleEdge(530, false); // value 0
-  decoder.HandleEdge(560, true);  // 13th bit start
-  decoder.HandleEdge(570, false); // value 0
-  decoder.HandleEdge(600, true);  // 14th bit start
-  decoder.HandleEdge(610, false); // value 0
-  decoder.HandleEdge(640, true);  // 15th bit start
-  decoder.HandleEdge(650, false); // value 0
-  decoder.HandleEdge(680, true);  // 15th bit start
-  decoder.HandleEdge(690, false); // value 0
-  decoder.HandleEdge(720, true);  // invalid pulse start
-  decoder.HandleEdge(730, false); // invalid pulse
-  decoder.HandleEdge(740, true);  // end of invalid pulse
+  generator.GeneratePulse(40, 40);       // sync
+  generator.GeneratePulses(10, 30, 16);  // 16x bit 1
+  generator.GeneratePulse(10, 10);       // invalid pulse
+  generator.SendEdge(true, 0);           // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x00, 0x00 };
@@ -380,17 +333,13 @@ test(BasicPulseDecoderShouldInoreExact2OneBitsFollowedByInvalidSignalForMinLen3)
   RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 3, 3);
   Logger logger;
   decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
 
   // when
-  decoder.HandleEdge(0, true);    // sync start
-  decoder.HandleEdge(40, false);  // sync
-  decoder.HandleEdge(80, true);   // 1st bit start
-  decoder.HandleEdge(110, false); // value 1
-  decoder.HandleEdge(120, true);   // 2nd bit start
-  decoder.HandleEdge(150, false); // value 1
-  decoder.HandleEdge(160, true);  // invalid pulse start
-  decoder.HandleEdge(170, false); // invalid pulse
-  decoder.HandleEdge(180, true);  // end of invalid pulse
+  generator.GeneratePulse(40, 40);      // sync
+  generator.GeneratePulses(10, 30, 2);  // 2x bit 1
+  generator.GeneratePulse(10, 10);      // invalid pulse
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
   
   // then
   byte expected[] = { 0x00 };
