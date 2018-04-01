@@ -118,6 +118,83 @@ public:
 // RC433HQNoiseFilter tests
 //////////////////////////////////////////////////////////////////////////////////
 
+test(RC433HQPulseBuffer_ShouldRemember1EdgeInSize1Buffer)
+{  
+  // given
+  PulseDecoderMock mock;
+  RC433HQPulseBuffer buffer(mock, 1);
+  TestingPulseGenerator generator(buffer);
+
+  // when
+  generator.SendEdge(true, 9);
+  size_t reportedUsedCount = 0;
+  size_t reportedMissedCount = 0;
+  buffer.ProcessData(reportedUsedCount, reportedMissedCount);
+
+  // then
+  RC433HQMicroseconds expectedTimes[] = { 0 };
+  bool expectedEdges[] = { true };
+  mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 1);
+  assertEqual(reportedUsedCount, 1);
+  assertEqual(reportedMissedCount, 0);
+}
+
+test(RC433HQPulseBuffer_ShouldRemember4EdgesInSize4Buffer)
+{  
+  // given
+  PulseDecoderMock mock;
+  RC433HQPulseBuffer buffer(mock, 4);
+  TestingPulseGenerator generator(buffer);
+
+  // when
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 9);
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 9);
+  size_t reportedUsedCount = 0;
+  size_t reportedMissedCount = 0;
+  buffer.ProcessData(reportedUsedCount, reportedMissedCount);
+
+  // then
+  RC433HQMicroseconds expectedTimes[] = { 0, 9, 18, 27 };
+  bool expectedEdges[] = { true, false, true, false };
+  mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 4);
+  assertEqual(reportedUsedCount, 4);
+  assertEqual(reportedMissedCount, 0);
+}
+
+test(RC433HQPulseBuffer_ShouldForget4EdgesInSize4Buffer)
+{  
+  // given
+  PulseDecoderMock mock;
+  RC433HQPulseBuffer buffer(mock, 4);
+  TestingPulseGenerator generator(buffer);
+
+  // when
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 9);
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 9);
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 9);
+  generator.SendEdge(true, 9);
+  generator.SendEdge(false, 9);
+  size_t reportedUsedCount = 0;
+  size_t reportedMissedCount = 0;
+  buffer.ProcessData(reportedUsedCount, reportedMissedCount);
+
+  // then
+  RC433HQMicroseconds expectedTimes[] = { 0, 9, 18, 27 };
+  bool expectedEdges[] = { true, false, true, false };
+  mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 4);
+  assertEqual(reportedUsedCount, 4);
+  assertEqual(reportedMissedCount, 4);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQNoiseFilter tests
+//////////////////////////////////////////////////////////////////////////////////
+
 test(NoiseFilter_ShouldForwardSlowPulse)
 {  
   // given

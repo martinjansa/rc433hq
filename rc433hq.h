@@ -1,5 +1,7 @@
 #pragma once
 
+#define DEBUG
+
 #if defined(ARDUINO)
 #	include <Arduino.h>
 #else
@@ -7,6 +9,21 @@
 #	include <stddef.h>
 #	define byte uint8_t
 #	define word uint16_t
+
+	// fake definitions, we are not touching HW
+#	define digitalPinToInterrupt(pin) 0
+#	define CHANGE 0
+#	define INPUT_PULLUP 0
+#	define HIGH 0
+#	define LOW 0
+#	define noInterrupts()
+#	define interrupts()
+#	define attachInterrupt(num, ptr, mode)
+#	define detachInterrupt(num)
+#	define digitalRead(pin) 0
+#	define micros() 0
+#	define pinMode(pin, mode)
+
 #endif // defined(ARDUINO)
 
 #ifdef DEBUG
@@ -47,6 +64,35 @@ public:
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction) = 0;
 };
 
+/** \brief PulseBuffer implements the IRC433PulseDecoder, minimizes the time in the interrupt and passes the buffered data into the connected pulse decoder from the Process() method that needs to be periodically called from the loop
+ */
+class RC433HQPulseBuffer: public IRC433PulseDecoder {
+private:
+	IRC433PulseDecoder &connectedPulseDecoder;
+	IRC433Logger *logger;
+	size_t bufferSize;
+	RC433HQMicroseconds *times;
+	bool *directions;
+	size_t dataIndex;  
+	size_t freeIndex;
+	size_t usedCount;	// count of the items already stored into the buffer
+	size_t missedCount; // count of the missed items, that could not be stored into the buffer
+
+public:
+	RC433HQPulseBuffer(IRC433PulseDecoder &aconnectedPulseDecoder, size_t abufferSize);
+	~RC433HQPulseBuffer();
+
+	// call this regularly from the loop to process the buffered data. reportedUsedCount is set to the number of items processed 
+	// in this call, reportedMissedCount is set to the number of items that could not be stored into the buffer from the interrupt
+	// because the buffer was full.
+	void ProcessData(size_t &reportedUsedCount, size_t &reportedMissedCount);
+
+	virtual void HandleEdge(RC433HQMicroseconds time, bool direction);
+
+private:
+	size_t CalculateNext(size_t index);
+};
+
 /** \brief RC433HQNoiseFilter implements the IRC433PulseDecoder, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
  */
 class RC433HQNoiseFilter: public IRC433PulseDecoder {
@@ -63,6 +109,7 @@ public:
 		lastEdgeValid(false) 
 	{
 	}
+
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction);
 };
 
@@ -125,4 +172,28 @@ public:
 protected:
 	void ClearReceivedBits();
 	void StoreReceivedBit(byte bit);
+};
+
+
+// the size of the internal buffer
+static const size_t RC433HQ_RECEIVER_BUF_LEN = 64;
+
+class RC433HQReceiver {
+private:
+	static RC433HQReceiver *activeInstance;
+private:
+	IRC433PulseDecoder &decoder;
+	bool iAmActiveInstance;
+	int receiverGpioPin;
+
+public:
+	RC433HQReceiver(IRC433PulseDecoder &adecoder, int areceiverGpioPin);
+	~RC433HQReceiver();
+
+protected:
+	// static interrupt handler - registered for the interrupt handling
+	static void HandleInterrupt();
+
+	// internal interrupt handler, called from the static method
+	void HandleInterruptInternal();
 };
