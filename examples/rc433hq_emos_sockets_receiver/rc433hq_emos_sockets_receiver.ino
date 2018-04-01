@@ -70,7 +70,7 @@ RC433HQEmosSocketsPulseDecoder decoder(recivedDataDumper);
 RC433HQPulseBuffer buffer(decoder, 128);
 
 // the instance of noise filter, that ignores all the very short pulses and passes the clean data to decoder
-RC433HQNoiseFilter noiseFilter(buffer, 5);
+RC433HQNoiseFilter noiseFilter(buffer, 10);
 
 // the 433 MHz receiver instance. Passes data to noise filter.
 RC433HQReceiver receiver(noiseFilter, 2);
