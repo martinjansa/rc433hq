@@ -1,6 +1,6 @@
 #line 2 "rc433hq_emos_sockets_receiver.ino"
 
-#define DEBUG
+//#define DEBUG
 
 #if defined(ARDUINO)
 #	include <rc433hq.h>

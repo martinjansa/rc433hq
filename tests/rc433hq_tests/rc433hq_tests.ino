@@ -23,10 +23,10 @@ public:
 
 class TestingPulseGenerator {
 private:
-  IRC433PulseDecoder &decoder;
+  IRC433PulseProcessor &decoder;
   RC433HQMicroseconds lastPulseStart;
 public:
-  TestingPulseGenerator(IRC433PulseDecoder &adecoder):
+  TestingPulseGenerator(IRC433PulseProcessor &adecoder):
     decoder(adecoder),
     lastPulseStart(0)
   {
@@ -52,7 +52,7 @@ public:
   }
 };
 
-class PulseDecoderMock: public IRC433PulseDecoder {
+class PulseDecoderMock: public IRC433PulseProcessor {
 private:
   RC433HQMicroseconds times[8];
   bool edges[8];

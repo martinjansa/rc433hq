@@ -1,6 +1,6 @@
 #pragma once
 
-#define DEBUG
+//#define DEBUG
 
 #if defined(ARDUINO)
 #	include <Arduino.h>
@@ -59,16 +59,16 @@ public:
 
 /** \brief Line protocol interface responsible for decoding of the pulses into the binary data
  */
-class IRC433PulseDecoder {
+class IRC433PulseProcessor {
 public:
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction) = 0;
 };
 
-/** \brief PulseBuffer implements the IRC433PulseDecoder, minimizes the time in the interrupt and passes the buffered data into the connected pulse decoder from the Process() method that needs to be periodically called from the loop
+/** \brief PulseBuffer implements the IRC433PulseProcessor, minimizes the time in the interrupt and passes the buffered data into the connected pulse decoder from the Process() method that needs to be periodically called from the loop
  */
-class RC433HQPulseBuffer: public IRC433PulseDecoder {
+class RC433HQPulseBuffer: public IRC433PulseProcessor {
 private:
-	IRC433PulseDecoder &connectedPulseDecoder;
+	IRC433PulseProcessor &connectedPulseDecoder;
 	IRC433Logger *logger;
 	size_t bufferSize;
 	RC433HQMicroseconds *times;
@@ -79,7 +79,7 @@ private:
 	size_t missedCount; // count of the missed items, that could not be stored into the buffer
 
 public:
-	RC433HQPulseBuffer(IRC433PulseDecoder &aconnectedPulseDecoder, size_t abufferSize);
+	RC433HQPulseBuffer(IRC433PulseProcessor &aconnectedPulseDecoder, size_t abufferSize);
 	~RC433HQPulseBuffer();
 
 	// call this regularly from the loop to process the buffered data. reportedUsedCount is set to the number of items processed 
@@ -93,17 +93,17 @@ private:
 	size_t CalculateNext(size_t index);
 };
 
-/** \brief RC433HQNoiseFilter implements the IRC433PulseDecoder, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
+/** \brief RC433HQNoiseFilter implements the IRC433PulseProcessor, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
  */
-class RC433HQNoiseFilter: public IRC433PulseDecoder {
+class RC433HQNoiseFilter: public IRC433PulseProcessor {
 private:
-	IRC433PulseDecoder &decoder;
+	IRC433PulseProcessor &decoder;
 	RC433HQMicroseconds minPulseDuration;
 	bool lastEdgeValid;
 	RC433HQMicroseconds lastEdgeTime;
 	bool lastEdgeDirection;
 public:
-	RC433HQNoiseFilter(IRC433PulseDecoder &adecoder, RC433HQMicroseconds aminPulseDuration):
+	RC433HQNoiseFilter(IRC433PulseProcessor &adecoder, RC433HQMicroseconds aminPulseDuration):
 		decoder(adecoder), 
 		minPulseDuration(aminPulseDuration), 
 		lastEdgeValid(false) 
@@ -117,7 +117,7 @@ static const size_t RC433HQ_MAX_PULSE_BITS = 128;
 
 /** \brief Basic sync protocol decoder
  */
-class RC433HQBasicSyncPulseDecoder: public IRC433PulseDecoder {
+class RC433HQBasicSyncPulseDecoder: public IRC433PulseProcessor {
 private:
 	IRC433DataReceiver &dataReceiver;
 	IRC433Logger *logger;
@@ -182,12 +182,12 @@ class RC433HQReceiver {
 private:
 	static RC433HQReceiver *activeInstance;
 private:
-	IRC433PulseDecoder &decoder;
+	IRC433PulseProcessor &decoder;
 	bool iAmActiveInstance;
 	int receiverGpioPin;
 
 public:
-	RC433HQReceiver(IRC433PulseDecoder &adecoder, int areceiverGpioPin);
+	RC433HQReceiver(IRC433PulseProcessor &adecoder, int areceiverGpioPin);
 	~RC433HQReceiver();
 
 protected:

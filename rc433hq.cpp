@@ -11,7 +11,7 @@ bool EqualWithTolerance(RC433HQMicroseconds a, RC433HQMicroseconds b, RC433HQMic
 // RC433HQPulseBuffer implementation
 //////////////////////////////////////////////////////////////////////////////////
 
-RC433HQPulseBuffer::RC433HQPulseBuffer(IRC433PulseDecoder &aconnectedPulseDecoder, size_t abufferSize):
+RC433HQPulseBuffer::RC433HQPulseBuffer(IRC433PulseProcessor &aconnectedPulseDecoder, size_t abufferSize):
     connectedPulseDecoder(aconnectedPulseDecoder),
     logger(0),
     bufferSize(abufferSize),
@@ -299,7 +299,7 @@ void RC433HQBasicSyncPulseDecoder::StoreReceivedBit(byte bit)
 // initialization of the static member
 RC433HQReceiver *RC433HQReceiver::activeInstance = 0;
 
-RC433HQReceiver::RC433HQReceiver(IRC433PulseDecoder &adecoder, int areceiverGpioPin):
+RC433HQReceiver::RC433HQReceiver(IRC433PulseProcessor &adecoder, int areceiverGpioPin):
     decoder(adecoder),
     iAmActiveInstance(false),
 	receiverGpioPin(areceiverGpioPin)
