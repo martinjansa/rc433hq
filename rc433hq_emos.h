@@ -3,7 +3,7 @@
 class RC433HQEmosSocketsPulseDecoder: public RC433HQBasicSyncPulseDecoder {
 public:
     RC433HQEmosSocketsPulseDecoder(IRC433DataReceiver &adataReceiver):
-        RC433HQBasicSyncPulseDecoder(adataReceiver, 2947, 7300, 408, 1133, 907, 612, 100, true, 24, 24)
+        RC433HQBasicSyncPulseDecoder(adataReceiver, 2948, 7302, 401, 1134, 918, 617, 100, true, 24, 24)
     {
     }
 };
