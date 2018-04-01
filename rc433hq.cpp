@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-void NoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
+void RC433HQNoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
 {
     // if we have some edge in the memory
 	if (lastEdgeValid) {
@@ -39,7 +39,7 @@ void NoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
 }
 
 
-void RC433BasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool direction)
+void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool direction)
 {
     // if the rising edge is being handled
     if (direction) {
@@ -138,13 +138,13 @@ void RC433BasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool direc
     }
 }
 
-void RC433BasicSyncPulseDecoder::ClearReceivedBits()
+void RC433HQBasicSyncPulseDecoder::ClearReceivedBits()
 {
     memset(receivedData, 0, RC433HQ_MAX_PULSE_BITS >> 3);
     receivedBits = 0;
 }
 
-void RC433BasicSyncPulseDecoder::StoreReceivedBit(byte bit)
+void RC433HQBasicSyncPulseDecoder::StoreReceivedBit(byte bit)
 {
     if (receivedBits < RC433HQ_MAX_PULSE_BITS) {
     

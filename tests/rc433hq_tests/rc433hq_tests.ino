@@ -110,12 +110,15 @@ public:
   }
 };
 
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQNoiseFilter tests
+//////////////////////////////////////////////////////////////////////////////////
 
 test(NoiseFilterShouldForwardSlowPulse)
 {  
   // given
   PulseDecoderMock mock;
-  NoiseFilter filter(mock, 3);
+  RC433HQNoiseFilter filter(mock, 3);
   TestingPulseGenerator generator(filter);
 
   // when
@@ -131,7 +134,7 @@ test(NoiseFilterShouldElimitateNoiseBeforeDownEdge)
 {  
   // given
   PulseDecoderMock mock;
-  NoiseFilter filter(mock, 3);
+  RC433HQNoiseFilter filter(mock, 3);
   TestingPulseGenerator generator(filter);
 
   // when
@@ -151,7 +154,7 @@ test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
 {  
   // given
   PulseDecoderMock mock;
-  NoiseFilter filter(mock, 3);
+  RC433HQNoiseFilter filter(mock, 3);
   TestingPulseGenerator generator(filter);
 
   // when
@@ -166,11 +169,15 @@ test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
 }
 
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQBasicSyncPulseDecoder tests
+//////////////////////////////////////////////////////////////////////////////////
+
 test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -190,7 +197,7 @@ test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -210,7 +217,7 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen2)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -230,7 +237,7 @@ test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen2)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -250,7 +257,7 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -270,7 +277,7 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen2)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -290,7 +297,7 @@ test(BasicPulseDecoderShouldDecode16ExactOneBitsFollowedByInvalidSignalForMaxLen
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -310,7 +317,7 @@ test(BasicPulseDecoderShouldDecode16ExactZeroBitsFollowedByInvalidSignalForMaxLe
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -330,7 +337,7 @@ test(BasicPulseDecoderShouldInoreExact2OneBitsFollowedByInvalidSignalForMinLen3)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433BasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 3, 3);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 3, 3);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);

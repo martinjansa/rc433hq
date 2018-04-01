@@ -38,9 +38,9 @@ public:
 	virtual void HandleEdge(RC433HQMilliseconds time, bool direction) = 0;
 };
 
-/** \brief NoiseFilter implements the IRC433PulseDecoder, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
+/** \brief RC433HQNoiseFilter implements the IRC433PulseDecoder, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
  */
-class NoiseFilter: public IRC433PulseDecoder {
+class RC433HQNoiseFilter: public IRC433PulseDecoder {
 private:
 	IRC433PulseDecoder &decoder;
 	RC433HQMilliseconds minPulseDuration;
@@ -48,7 +48,7 @@ private:
 	RC433HQMilliseconds lastEdgeTime;
 	bool lastEdgeDirection;
 public:
-	NoiseFilter(IRC433PulseDecoder &adecoder, RC433HQMilliseconds aminPulseDuration):
+	RC433HQNoiseFilter(IRC433PulseDecoder &adecoder, RC433HQMilliseconds aminPulseDuration):
 		decoder(adecoder), 
 		minPulseDuration(aminPulseDuration), 
 		lastEdgeValid(false) 
@@ -61,7 +61,7 @@ static const size_t RC433HQ_MAX_PULSE_BITS = 128;
 
 /** \brief Basic sync protocol decoder
  */
-class RC433BasicSyncPulseDecoder: public IRC433PulseDecoder {
+class RC433HQBasicSyncPulseDecoder: public IRC433PulseDecoder {
 private:
 	IRC433DataReceiver &dataReceiver;
 	IRC433Logger *logger;
@@ -78,7 +78,7 @@ private:
 
 	
 public:	
-	RC433BasicSyncPulseDecoder(IRC433DataReceiver &adataReceiver, word asyncFirstUs, word asyncSecondUs, word azeroFirstUs, word azeroSecondUs, word aoneFirstUs, word aoneSecondUs, bool ahighFirst, word aminBits, word amaxBits):
+	RC433HQBasicSyncPulseDecoder(IRC433DataReceiver &adataReceiver, word asyncFirstUs, word asyncSecondUs, word azeroFirstUs, word azeroSecondUs, word aoneFirstUs, word aoneSecondUs, bool ahighFirst, word aminBits, word amaxBits):
 		dataReceiver(adataReceiver),
 		logger(0),
 		syncFirstUs(asyncFirstUs),
