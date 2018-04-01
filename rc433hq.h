@@ -175,9 +175,6 @@ protected:
 };
 
 
-// the size of the internal buffer
-static const size_t RC433HQ_RECEIVER_BUF_LEN = 64;
-
 class RC433HQReceiver {
 private:
 	static RC433HQReceiver *activeInstance;
