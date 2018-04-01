@@ -2,7 +2,12 @@
 
 #include <string.h>
 
-void RC433HQNoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
+bool EqualWithTolerance(RC433HQMicroseconds a, RC433HQMicroseconds b, RC433HQMicroseconds tolerance)
+{
+    return ((a - tolerance) <= b) && (b <= (a + tolerance));
+}
+
+void RC433HQNoiseFilter::HandleEdge(RC433HQMicroseconds time, bool direction)
 {
     // if we have some edge in the memory
 	if (lastEdgeValid) {
@@ -18,7 +23,7 @@ void RC433HQNoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
         }
 
         // calculate the duration of the last pulse
-        RC433HQMilliseconds duration = (time - lastEdgeTime);
+        RC433HQMicroseconds duration = (time - lastEdgeTime);
 
         // if the last pulse was to short
         if (duration < minPulseDuration) {
@@ -39,26 +44,26 @@ void RC433HQNoiseFilter::HandleEdge(RC433HQMilliseconds time, bool direction)
 }
 
 
-void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool direction)
+void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool direction)
 {
     // if the rising edge is being handled
     if (direction) {
 
-        LogMessage("Handling rising edge.\n");
+        LOG_MESSAGE("Handling rising edge.\n");
 
         // if both last rising and falling edge were syncDetected
         if (previousRisingEdge && previousFallingEdge) {
 
-            LogMessage("Previous rising and falling edge were detected.\n");
+            LOG_MESSAGE("Previous rising and falling edge were detected.\n");
 
             // calcuate the high and low durations
-            RC433HQMilliseconds highDuration = previousFallingEdgeTime - previousRisingEdgeTime;
-            RC433HQMilliseconds lowDuration = time - previousFallingEdgeTime;
+            RC433HQMicroseconds highDuration = previousFallingEdgeTime - previousRisingEdgeTime;
+            RC433HQMicroseconds lowDuration = time - previousFallingEdgeTime;
 
             // if the last pulse represented a 1
-            if (syncDetected && highDuration == oneFirstUs && lowDuration == oneSecondUs) {
+            if (syncDetected && EqualWithTolerance(highDuration, oneFirstUs, toleranceUs) && EqualWithTolerance(lowDuration, oneSecondUs, toleranceUs)) {
 
-                LogMessage("Sync detected and pulse represents bit 1.\n");
+                LOG_MESSAGE("Sync detected and pulse represents bit 1.\n");
 
                 // store the bit
                 StoreReceivedBit(1);
@@ -66,7 +71,7 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool dir
                 // if we reached the higher limit of the received bit
                 if (receivedBits == maxBits) {
 
-                    LogMessage("Max bits received, sending data.\n");
+                    LOG_MESSAGE("Max bits received, sending data.\n");
 
                     // send the data to the data receiver
                     dataReceiver.HandleData(receivedData, receivedBits);
@@ -77,9 +82,9 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool dir
             } else {
 
                 // if the last pulse represented a 1
-                if (syncDetected && highDuration == zeroFirstUs && lowDuration == zeroSecondUs) {
+                if (syncDetected && EqualWithTolerance(highDuration, zeroFirstUs, toleranceUs) && EqualWithTolerance(lowDuration, zeroSecondUs, toleranceUs)) {
 
-                    LogMessage("Sync detected and pulse represents bit 0.\n");
+                    LOG_MESSAGE("Sync detected and pulse represents bit 0.\n");
 
                     // store the bit
                     StoreReceivedBit(0);
@@ -87,7 +92,7 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool dir
                     // if we reached the higher limit of the received bit
                     if (receivedBits == maxBits) {
 
-                        LogMessage("Max bits received, sending data.\n");
+                        LOG_MESSAGE("Max bits received, sending data.\n");
 
                         // send the data to the data receiver
                         dataReceiver.HandleData(receivedData, receivedBits);
@@ -102,7 +107,7 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool dir
                     // if some data were received before and is above the minimal length
                     if (receivedBits >= minBits) {
 
-                        LogMessage("Min bits received before non data pulse, sending data.\n");
+                        LOG_MESSAGE("Min bits received before non data pulse, sending data.\n");
 
                         // send the data to the data receiver
                         dataReceiver.HandleData(receivedData, receivedBits);
@@ -110,9 +115,9 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool dir
                     }
 
                     // if the sync pulse was detected
-                    if (highDuration == syncFirstUs && lowDuration == syncSecondUs) {
+                    if (EqualWithTolerance(highDuration, syncFirstUs, toleranceUs) && EqualWithTolerance(lowDuration, syncSecondUs, toleranceUs)) {
 
-                        LogMessage("Sync pulse deteceted.\n");
+                        LOG_MESSAGE("Sync pulse deteceted.\n");
 
                         // start a new sequence after the successfull sync
                         syncDetected = true;
@@ -130,7 +135,7 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMilliseconds time, bool dir
     
     } else {
 
-        LogMessage("Handling falling edge.\n");
+        LOG_MESSAGE("Handling falling edge.\n");
 
         // keep the falling edge time
         previousFallingEdge = true;

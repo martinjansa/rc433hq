@@ -8,6 +8,10 @@
 #	include "../../rc433hq.h"
 #endif // defined(ARDUINO)
 
+//////////////////////////////////////////////////////////////////////////////////
+// Utility and mock classes
+//////////////////////////////////////////////////////////////////////////////////
+
 class Logger: public IRC433Logger {
 public:
 	virtual void LogMessage(const char *message)
@@ -20,7 +24,7 @@ public:
 class TestingPulseGenerator {
 private:
   IRC433PulseDecoder &decoder;
-  RC433HQMilliseconds lastPulseStart;
+  RC433HQMicroseconds lastPulseStart;
 public:
   TestingPulseGenerator(IRC433PulseDecoder &adecoder):
     decoder(adecoder),
@@ -28,19 +32,19 @@ public:
   {
   }
 
-  void SendEdge(bool high, RC433HQMilliseconds delayAfter)
+  void SendEdge(bool high, RC433HQMicroseconds delayAfter)
   {
     decoder.HandleEdge(lastPulseStart, high);
     lastPulseStart += delayAfter;
   }
 
-  void GeneratePulse(RC433HQMilliseconds highDuration, RC433HQMilliseconds lowDuration)
+  void GeneratePulse(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration)
   {
     SendEdge(true, highDuration);
     SendEdge(false, lowDuration);
   }
 
-  void GeneratePulses(RC433HQMilliseconds highDuration, RC433HQMilliseconds lowDuration, size_t count)
+  void GeneratePulses(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration, size_t count)
   {
     for (size_t i = 0; i < count; i++) {
       GeneratePulse(highDuration, lowDuration);
@@ -50,12 +54,12 @@ public:
 
 class PulseDecoderMock: public IRC433PulseDecoder {
 private:
-  RC433HQMilliseconds times[8];
+  RC433HQMicroseconds times[8];
   bool edges[8];
   size_t pos;
 public:
 	PulseDecoderMock(): pos(0) {}
-	virtual void HandleEdge(RC433HQMilliseconds time, bool direction)
+	virtual void HandleEdge(RC433HQMicroseconds time, bool direction)
   {
     // is there is space in the iternal buffers
     if (pos < 8) {
@@ -67,7 +71,7 @@ public:
     }
   }
 
-  void AssertHandleEdgeCalled(RC433HQMilliseconds expectedTimes[], bool expectedEdges[], size_t expectedEdgesCount)
+  void AssertHandleEdgeCalled(RC433HQMicroseconds expectedTimes[], bool expectedEdges[], size_t expectedEdgesCount)
   {
     assertEqual(pos, expectedEdgesCount);
     for (size_t i = 0; i < pos; i++) {
@@ -114,7 +118,7 @@ public:
 // RC433HQNoiseFilter tests
 //////////////////////////////////////////////////////////////////////////////////
 
-test(NoiseFilterShouldForwardSlowPulse)
+test(NoiseFilter_ShouldForwardSlowPulse)
 {  
   // given
   PulseDecoderMock mock;
@@ -125,12 +129,12 @@ test(NoiseFilterShouldForwardSlowPulse)
   generator.GeneratePulses(10, 10, 2);
 
   // then
-  RC433HQMilliseconds expectedTimes[] = { 0, 10, 20 };
+  RC433HQMicroseconds expectedTimes[] = { 0, 10, 20 };
   bool expectedEdges[] = { true, false, true};
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
 }
 
-test(NoiseFilterShouldElimitateNoiseBeforeDownEdge)
+test(NoiseFilter_ShouldElimitateNoiseBeforeDownEdge)
 {  
   // given
   PulseDecoderMock mock;
@@ -145,12 +149,12 @@ test(NoiseFilterShouldElimitateNoiseBeforeDownEdge)
   generator.GeneratePulse(10, 10);
 
   // then
-  RC433HQMilliseconds expectedTimes[] = { 0, 10, 20 };
+  RC433HQMicroseconds expectedTimes[] = { 0, 10, 20 };
   bool expectedEdges[] = { true, false, true};
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
 }
 
-test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
+test(NoiseFilter_ShouldIgnoreTheSameDirectionEdge)
 {  
   // given
   PulseDecoderMock mock;
@@ -164,7 +168,7 @@ test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
   generator.GeneratePulse(10, 10);
 
   // then
-  RC433HQMilliseconds expectedTimes[] = { 0, 10, 20 };
+  RC433HQMicroseconds expectedTimes[] = { 0, 10, 20 };
   bool expectedEdges[] = { true, false, true};
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 3);
 }
@@ -173,11 +177,11 @@ test(NoiseFilterShouldIgnoreTheSameDirectionEdge)
 // RC433HQBasicSyncPulseDecoder tests
 //////////////////////////////////////////////////////////////////////////////////
 
-test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen1)
+test(BasicPulseDecoder_ShouldDecodePreciseOneBitFollowedBySyncForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -193,11 +197,11 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen1)
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
 }
 
-test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen1)
+test(BasicPulseDecoder_ShouldDecodePreciseZeroBitFollowedBySyncForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -213,11 +217,51 @@ test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen1)
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
 }
 
-test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen2)
+test(BasicPulseDecoder_ShouldDecodeUnpreciseLowOneBitFollowedBySyncForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 1);
+  Logger logger;
+  decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
+
+  // when
+  generator.GeneratePulse(42, 38);      // sync (unprecise)
+  generator.GeneratePulse(28, 12);      // bit 1 (unprecise)
+  generator.GeneratePulse(38, 42);      // sync (unprecise)
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
+  
+  // then
+  byte expected[] = { 0x01 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoder_ShouldDecodeUnpreciseLowZeroBitFollowedBySyncForMaxLen1)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 1);
+  Logger logger;
+  decoder.SetLogger(logger);
+  TestingPulseGenerator generator(decoder);
+
+  // when
+  generator.GeneratePulse(39, 41);      // sync (unprecise)
+  generator.GeneratePulse(9, 31);       // bit 0 (unprecise)
+  generator.GeneratePulse(41, 39);      // sync (unprecise)
+  generator.SendEdge(true, 0);          // last rising edge to allow detection of previous pulse
+  
+  // then
+  byte expected[] = { 0x00 };
+  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+}
+
+test(BasicPulseDecoder_ShouldDecodePreciseOneBitFollowedBySyncForMaxLen2)
+{
+  // given
+  DataReceiverMock dataReceiverMock;
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -233,11 +277,11 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedBySyncForMaxLen2)
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
 }
 
-test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen2)
+test(BasicPulseDecoder_ShouldDecodePreciseZeroBitFollowedBySyncForMaxLen2)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -253,11 +297,11 @@ test(BasicPulseDecoderShouldDecodeExactZeroBitFollowedBySyncForMaxLen2)
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
 }
 
-test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen1)
+test(BasicPulseDecoder_ShouldDecodePreciseOneBitFollowedByInvalidSignalForMaxLen1)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 1);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 1);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -273,11 +317,11 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen1)
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
 }
 
-test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen2)
+test(BasicPulseDecoder_ShouldDecodePreciseOneBitFollowedByInvalidSignalForMaxLen2)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 2);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 2);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -293,11 +337,11 @@ test(BasicPulseDecoderShouldDecodeExactOneBitFollowedByInvalidSignalForMaxLen2)
   dataReceiverMock.AssertHandleDataCalled(expected, 1);
 }
 
-test(BasicPulseDecoderShouldDecode16ExactOneBitsFollowedByInvalidSignalForMaxLen24)
+test(BasicPulseDecoder_ShouldDecode16PreciseOneBitsFollowedByInvalidSignalForMaxLen24)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 24);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -313,11 +357,11 @@ test(BasicPulseDecoderShouldDecode16ExactOneBitsFollowedByInvalidSignalForMaxLen
   dataReceiverMock.AssertHandleDataCalled(expected, 16);
 }
 
-test(BasicPulseDecoderShouldDecode16ExactZeroBitsFollowedByInvalidSignalForMaxLen24)
+test(BasicPulseDecoder_ShouldDecode16PreciseZeroBitsFollowedByInvalidSignalForMaxLen24)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 1, 24);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 1, 24);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -333,11 +377,11 @@ test(BasicPulseDecoderShouldDecode16ExactZeroBitsFollowedByInvalidSignalForMaxLe
   dataReceiverMock.AssertHandleDataCalled(expected, 16);
 }
 
-test(BasicPulseDecoderShouldInoreExact2OneBitsFollowedByInvalidSignalForMinLen3)
+test(BasicPulseDecoder_ShouldInorePrecise2OneBitsFollowedByInvalidSignalForMinLen3)
 {
   // given
   DataReceiverMock dataReceiverMock;
-  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, true, 3, 3);
+  RC433HQBasicSyncPulseDecoder decoder(dataReceiverMock, 40, 40, 10, 30, 30, 10, 2, true, 3, 3);
   Logger logger;
   decoder.SetLogger(logger);
   TestingPulseGenerator generator(decoder);
@@ -352,6 +396,10 @@ test(BasicPulseDecoderShouldInoreExact2OneBitsFollowedByInvalidSignalForMinLen3)
   byte expected[] = { 0x00 };
   dataReceiverMock.AssertHandleDataCalled(expected, 0);
 }
+
+//////////////////////////////////////////////////////////////////////////////////
+// Test driver infrastructure
+//////////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
