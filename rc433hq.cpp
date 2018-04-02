@@ -38,6 +38,9 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
     reportedMissedCount = 0;
 
     bool continueProcessing = false;
+	
+    bool missedIndexSet = false;
+    size_t missedIndex = 0;;
 
     do {
 
@@ -46,6 +49,8 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
         bool dataAvailable = false;
         RC433HQMicroseconds time;
         bool direction;
+
+        bool sendHandleMissedEdges = false;
 
         // disable the interrupts for a while
         noInterrupts();
@@ -64,6 +69,17 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
             dataIndex = CalculateNext(dataIndex);
             usedCount--;
 
+            // if the missed index has been set and points to the next
+            if (missedIndexSet && (missedIndex == dataIndex)) {
+
+                // set the flag to call the handle missed edges
+                sendHandleMissedEdges = true;
+
+                // clear the value of the free index
+                missedIndexSet = false;
+                missedIndex = freeIndex;
+            }
+
             // if there are still some data
             if (usedCount > 0) {
 
@@ -75,6 +91,14 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
         // if there were some missed items
         if (missedCount > 0) {
             
+            // if the missed index has not been set
+            if (!missedIndexSet) {
+
+                // keep the current value of the free index
+                missedIndexSet = true;
+                missedIndex = freeIndex;
+            }
+
             // keep the number of missed items
             reportedMissedCount += missedCount;
 
@@ -93,6 +117,14 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
 
             // increase the reported user count
             reportedUsedCount++;
+        }
+
+        // if we should send the handle missed edges
+        if (sendHandleMissedEdges) {
+
+            // call it
+            connectedPulseDecoder.HandleMissedEdges();
+            sendHandleMissedEdges = false;
         }
 
     } while (continueProcessing);
@@ -168,6 +200,15 @@ void RC433HQNoiseFilter::HandleEdge(RC433HQMicroseconds time, bool direction)
     lastEdgeTime = time;
     lastEdgeDirection = direction;
     lastEdgeValid = true;
+}
+
+void RC433HQNoiseFilter::HandleMissedEdges()
+{
+    // ignore the last pulse and also the one currently obtained
+    lastEdgeValid = false;
+
+    // inform the attached processor we are losing some data
+    decoder.HandleMissedEdges();    
 }
 
 
@@ -287,6 +328,16 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
         previousFallingEdge = true;
         previousFallingEdgeTime = time;
     }
+}
+
+void RC433HQBasicSyncPulseDecoder::HandleMissedEdges()
+{
+    LOG_MESSAGE("Handling missed edges call.\n");
+
+    // ignore the currently cached data, we will start over from the looking for the next sync
+    ClearDelta();
+    ClearReceivedBits();
+    syncDetected = true;
 }
 
 void RC433HQBasicSyncPulseDecoder::CalculateDelta(RC433HQMicroseconds expected, RC433HQMicroseconds actual)

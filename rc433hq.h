@@ -1,6 +1,6 @@
 #pragma once
 
-//#define DEBUG
+#define DEBUG
 
 #if defined(ARDUINO)
 #	include <Arduino.h>
@@ -63,7 +63,13 @@ public:
  */
 class IRC433PulseProcessor {
 public:
+	// handle one rising or falling edge that was detected at specified time
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction) = 0;
+
+	// used to notifi the processor that some edges could not be handled in the earlier stages (forgotten when buffers were full)
+	virtual void HandleMissedEdges()
+	{
+	}
 };
 
 
@@ -85,6 +91,13 @@ public:
 		// handle the edge in both attached processors
 		first.HandleEdge(time, direction);
 		second.HandleEdge(time, direction);
+	}
+
+	virtual void HandleMissedEdges()
+	{
+		// inform both attached processors
+		first.HandleMissedEdges();
+		second.HandleMissedEdges();
 	}
 };
 
@@ -136,6 +149,8 @@ public:
 	}
 
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction);
+
+	virtual void HandleMissedEdges();
 };
 
 static const size_t RC433HQ_MAX_PULSE_BITS = 128;
@@ -193,6 +208,8 @@ public:
 	}
 	
 	virtual void HandleEdge(RC433HQMicroseconds time, bool drection);
+
+	virtual void HandleMissedEdges();
 
 protected:
 	// bits operations

@@ -57,8 +57,14 @@ private:
   RC433HQMicroseconds times[8];
   bool edges[8];
   size_t pos;
+  bool handleMissedEdgesCalled;
 public:
-	PulseDecoderMock(): pos(0) {}
+	PulseDecoderMock():
+    pos(0),
+    handleMissedEdgesCalled(false)
+  {
+  }
+
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction)
   {
     // is there is space in the iternal buffers
@@ -71,6 +77,11 @@ public:
     }
   }
 
+  virtual void HandleMissedEdges()
+  {
+    handleMissedEdgesCalled = true;
+  }
+
   void AssertHandleEdgeCalled(RC433HQMicroseconds expectedTimes[], bool expectedEdges[], size_t expectedEdgesCount)
   {
     assertEqual(pos, expectedEdgesCount);
@@ -78,6 +89,16 @@ public:
       assertEqual(times[i], expectedTimes[i]);
       assertEqual(edges[i], expectedEdges[i]);
     }
+  }
+
+  void AssertHandleMissedEdgesNotCalled()
+  {
+    assertEqual(handleMissedEdgesCalled, false);
+  }
+
+  void AssertHandleMissedEdgesCalled()
+  {
+    assertEqual(handleMissedEdgesCalled, true);
   }
 };
 
@@ -120,7 +141,7 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////////
-// RC433HQNoiseFilter tests
+// RC433HQPulseBuffer tests
 //////////////////////////////////////////////////////////////////////////////////
 
 test(RC433HQPulseBuffer_ShouldRemember1EdgeInSize1Buffer)
@@ -142,6 +163,7 @@ test(RC433HQPulseBuffer_ShouldRemember1EdgeInSize1Buffer)
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 1);
   assertEqual(reportedUsedCount, 1);
   assertEqual(reportedMissedCount, 0);
+  mock.AssertHandleMissedEdgesNotCalled();
 }
 
 test(RC433HQPulseBuffer_ShouldRemember4EdgesInSize4Buffer)
@@ -166,6 +188,7 @@ test(RC433HQPulseBuffer_ShouldRemember4EdgesInSize4Buffer)
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 4);
   assertEqual(reportedUsedCount, 4);
   assertEqual(reportedMissedCount, 0);
+  mock.AssertHandleMissedEdgesNotCalled();
 }
 
 test(RC433HQPulseBuffer_ShouldForget4EdgesInSize4Buffer)
@@ -194,6 +217,7 @@ test(RC433HQPulseBuffer_ShouldForget4EdgesInSize4Buffer)
   mock.AssertHandleEdgeCalled(expectedTimes, expectedEdges, 4);
   assertEqual(reportedUsedCount, 4);
   assertEqual(reportedMissedCount, 4);
+  mock.AssertHandleMissedEdgesCalled();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -492,7 +516,7 @@ void setup()
   //Test::min_verbosity |= TEST_VERBOSITY_ASSERTIONS_ALL;
 
   //Test::exclude("*");
-  //Test::include("BasicPulseDecoder_ShouldDecodeUnprecise*");
+  //Test::include("RC433HQPulseBuffer_ShouldForget4EdgesInSize4Buffer");
 }
 
 void loop()
