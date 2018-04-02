@@ -78,25 +78,30 @@ public:
     lastDump = time;
 
     // dump the received data 
-    Serial.print(time);
-    Serial.print(": received ");
+    Serial.print("Received ");
     Serial.print(bits);
-    Serial.print(" bits, via source ");
-    Serial.print(source);
-    Serial.print(" binary: ");
+    Serial.print(" bits binary:");
     int i;
     for (i = 0; i < (bits >> 3); i++) {
+      Serial.print(" ");
       Serial.print(ByteToBinary(data[i]));
-      Serial.print(" ");
     }
-    Serial.print(", hexadecimal: ");
+    Serial.print(", hexadecimal:");
     for (i = 0; i < (bits >> 3); i++) {
-      Serial.print(data[i], HEX);
       Serial.print(" ");
+      Serial.print(data[i], HEX);
     }
+    Serial.print(", time: ");
+    Serial.print(time);
+    Serial.print(", source: ");
+    Serial.print(source);
     Serial.print(", quality ");
     Serial.print(quality);
-    Serial.print(" %\n");
+    Serial.print(" % ");
+    for (i = 0; i < (int(quality) / 10); i++) {
+      Serial.print("*");
+    }
+    Serial.print("\n");
   }
 };
 
