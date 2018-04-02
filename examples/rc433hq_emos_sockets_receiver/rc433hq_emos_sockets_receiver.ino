@@ -137,7 +137,7 @@ RC433HQEmosSocketsPulseDecoderB decoderB(handlerB);
 RC433PulseSignalSplitter signalSplitter(decoderA, decoderB);
 
 // buffer for handled data
-RC433HQPulseBuffer buffer(signalSplitter, 128);
+RC433HQPulseBuffer buffer(signalSplitter, 256);
 
 // the instance of noise filter, that ignores all the very short pulses and passes the clean data to decoder
 RC433HQNoiseFilter noiseFilter(buffer, 3);
@@ -173,13 +173,14 @@ void setup()
 void loop()
 {
   // process the data in the buffer
-  size_t reportedUsedCount = 0;
+  size_t reportedBufferUsedCount = 0;
+  size_t reportedProcessedCount = 0;
   size_t reportedMissedCount = 0;
-  buffer.ProcessData(reportedUsedCount, reportedMissedCount);
+  buffer.ProcessData(reportedBufferUsedCount, reportedProcessedCount, reportedMissedCount);
 
   // add the counts to the statistics
   iterationsCount++;
-  totalProcessedCount += reportedUsedCount;
+  totalProcessedCount += reportedProcessedCount;
   totalMissedCount += reportedMissedCount;
 
   // if we've been processing data at least STATS_PERIOD

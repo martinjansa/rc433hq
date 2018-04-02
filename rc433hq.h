@@ -106,14 +106,22 @@ public:
  */
 class RC433HQPulseBuffer: public IRC433PulseProcessor {
 private:
+	// we will store word values into the buffer, while:
+	//  - the highest bit 0x8000 means the direction of the edge (0x8000 is rising and 0x0000 is falling)
+	//  - the lower 15 bits represent the time delay since the previous value in microseconds. A special value
+	//    0x7fff is reserved and means that the next two words store the absolut time in microseconds.
+	typedef word BufferValue;
+
+private:
 	IRC433PulseProcessor &connectedPulseDecoder;
 	IRC433Logger *logger;
 	size_t bufferSize;
-	RC433HQMicroseconds *times;
-	bool *directions;
+	BufferValue *buffer;
+	RC433HQMicroseconds lastStoredEdgeTime;  // valid, if there is at least one edge in the buffer
+	RC433HQMicroseconds lastSentEdgeTime;    // initialized to 0, otherwise valid
 	size_t dataIndex;  
 	size_t freeIndex;
-	size_t usedCount;	// count of the items already stored into the buffer
+	size_t usedCount;	// count of the items (not edges) already stored into the buffer
 	size_t missedCount; // count of the missed items, that could not be stored into the buffer
 
 public:
@@ -123,11 +131,12 @@ public:
 	// call this regularly from the loop to process the buffered data. reportedUsedCount is set to the number of items processed 
 	// in this call, reportedMissedCount is set to the number of items that could not be stored into the buffer from the interrupt
 	// because the buffer was full.
-	void ProcessData(size_t &reportedUsedCount, size_t &reportedMissedCount);
+	void ProcessData(size_t &reportedBufferUsedCount, size_t &reportedProcessedCount, size_t &reportedMissedCount);
 
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction);
 
 private:
+	void StoreAbsolutTime(RC433HQMicroseconds time, BufferValue directionMask);
 	size_t CalculateNext(size_t index);
 };
 

@@ -19,22 +19,22 @@ RC433HQPulseBuffer::RC433HQPulseBuffer(IRC433PulseProcessor &aconnectedPulseDeco
     dataIndex(0),
     freeIndex(0),
     usedCount(0),
-    missedCount(0)
+    missedCount(0),
+    lastSentEdgeTime(0)
 {
-    times = new RC433HQMicroseconds[bufferSize];
-    directions = new bool[bufferSize];
+    buffer = new BufferValue[bufferSize];
 }
 
 RC433HQPulseBuffer::~RC433HQPulseBuffer()
 {
-    delete [] times; times = 0;
-    delete [] directions; directions = 0;
+    delete [] buffer; buffer = 0;
 }
 
-void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reportedMissedCount)
+void RC433HQPulseBuffer::ProcessData(size_t &reportedBufferUsedCount, size_t &reportedProcessedCount, size_t &reportedMissedCount)
 {
     // initialize the output values
-    reportedUsedCount = 0;
+    reportedBufferUsedCount = 0;
+    reportedProcessedCount = 0;
     reportedMissedCount = 0;
 
     bool continueProcessing = false;
@@ -61,13 +61,30 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
             // set the data available flag
             dataAvailable = true;
 
-            // keep the time and direction of the first edge in the buffer
-            time = times[dataIndex];
-            direction = directions[dataIndex];
+            // read the first item from the buffer
+            BufferValue value = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
 
-            // move the data index further and decrease the used count
-            dataIndex = CalculateNext(dataIndex);
-            usedCount--;
+            // calculate the direction
+            direction = (value & 0x8000) != 0;
+
+            // if the value is a marker that the absolute time is stored
+            if ((value & 0x7fff) == 0x7fff) {
+
+                // there should be two more values
+                // assert(usedCount >= 2);
+
+                // read the absolute time from the buffer
+                RC433HQMicroseconds timeLow = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
+                RC433HQMicroseconds timeHigh = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
+
+                // calculate the time from two words
+                time = (timeHigh << 16) | timeLow;
+
+            } else {
+
+                // we will calculate the relative time
+                time = lastSentEdgeTime + (value & 0x7fff);
+            }
 
             // if the missed index has been set and points to the next
             if (missedIndexSet && (missedIndex == dataIndex)) {
@@ -114,9 +131,10 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedUsedCount, size_t &reported
 
             // send the data to the connected decoder
             connectedPulseDecoder.HandleEdge(time, direction);
+            lastSentEdgeTime = time;
 
             // increase the reported user count
-            reportedUsedCount++;
+            reportedProcessedCount++;
         }
 
         // if we should send the handle missed edges
@@ -135,22 +153,70 @@ void RC433HQPulseBuffer::HandleEdge(RC433HQMicroseconds time, bool direction)
     // this method is typically called from an interrupt, so we use a simple mutual exclution 
     // just by disabling the interrupts from the method that reads the data written here.
 
-    // if there is space in the bufferSize
-    if (times != 0 && directions != 0 && usedCount < bufferSize) {
+    // assert(buffer != 0);
 
-        // store the value into the buffer
-        times[freeIndex] = time;
-        directions[freeIndex] = direction;
+    bool successfullyStored = false;
 
-        // move the free index and increase the used count
-        freeIndex = CalculateNext(freeIndex);
-        usedCount++;
+    // if the buffer is valid
+    if (buffer != 0) {
 
-    } else {
+        // calculate the direction mask
+        word directionMask = (direction? 0x8000: 0x0000);
 
-        // there is no space in the buffer. Increase the missedCount
+        // if there are no items in the buffer
+        if (usedCount == 0) {
+
+            // store the absolut time of the edge
+            StoreAbsolutTime(time, directionMask);
+            lastStoredEdgeTime = time;
+            successfullyStored = true;
+
+        } else {
+
+            // calculate the relative edge time from the current and last edge times
+            RC433HQMicroseconds relativeEdgeTime = time - lastStoredEdgeTime;
+
+            // if the time is smaller than what fits into 15 bits
+            if (relativeEdgeTime < 0x7fff) {
+
+                // if there is one item available in the buffer
+                if (usedCount < bufferSize) {
+
+                    // store the relative edge time
+                    buffer[freeIndex] = directionMask | BufferValue(relativeEdgeTime); freeIndex = CalculateNext(freeIndex);  // direction and 15 bits
+                    usedCount++;
+                    lastStoredEdgeTime = time;
+                    successfullyStored = true;
+                }
+
+            } else {
+
+                // we need to store the absolute time. If there are at least 3 items in the buffer
+                if (usedCount <= (bufferSize - 3)) {
+
+                    // store the absolut time of the edge
+                    StoreAbsolutTime(time, directionMask);
+                    lastStoredEdgeTime = time;
+                    successfullyStored = true;
+                }
+            }
+        }
+    }
+
+    // if we could not successfully store the incoming value
+    if (!successfullyStored) {
+
+        // increase the missedCount
         missedCount++;
     }
+}
+
+void RC433HQPulseBuffer::StoreAbsolutTime(RC433HQMicroseconds time, BufferValue directionMask)
+{
+    buffer[freeIndex] = directionMask | 0x7fff; freeIndex = CalculateNext(freeIndex);      // direction and marker
+    buffer[freeIndex] = BufferValue(time & 0xffff); freeIndex = CalculateNext(freeIndex);  // lower 2 bytes
+    buffer[freeIndex] = BufferValue((time >> 16) & 0xffff); freeIndex = CalculateNext(freeIndex);  // higher 2 bytes
+    usedCount += 3;
 }
 
 size_t RC433HQPulseBuffer::CalculateNext(size_t index)
