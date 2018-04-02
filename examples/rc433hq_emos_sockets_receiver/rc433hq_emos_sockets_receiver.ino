@@ -31,6 +31,31 @@ public:
   }
 };
 
+// dumps bits from the given byte in their binary represenation. If bits are 8, starts with the higher bit 0x80, otherwise starts with lower bits
+static char *ByteToBinary(byte value, size_t bits = 8) {
+  static char buf[9];
+
+  // assert (bits <= 8)
+
+  // if not all the bits should be dumped
+  if (bits < 8) {
+    // shift the value left by the number of skipped bits
+    value = value << (8 - bits);
+  }
+
+  size_t i;
+  for (i = 0; i < bits; i++) {
+    // write the bit character
+    buf[i] = (((value & 0x80) != 0) ? '1' : '0');
+
+    // shift the value
+    value = value << 1;
+  }
+  // write the terminating zero
+  buf[i] = '\0';
+  return buf;
+}
+
 class ReceivedDataDumper {
 private:
   unsigned long lastDump;
@@ -63,7 +88,7 @@ public:
     Serial.print(" binary: ");
     int i;
     for (i = 0; i < (bits >> 3); i++) {
-      Serial.print(data[i], BIN);
+      Serial.print(ByteToBinary(data[i]));
       Serial.print(" ");
     }
     Serial.print(", hexadecimal: ");
