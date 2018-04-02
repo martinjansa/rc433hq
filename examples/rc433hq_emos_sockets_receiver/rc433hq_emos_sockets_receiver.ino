@@ -32,11 +32,31 @@ public:
 };
 
 class ReceivedDataDumper {
+private:
+  unsigned long lastDump;
+
 public:
+  ReceivedDataDumper():
+    lastDump(0)
+  {
+  }
+
   virtual void DumpData(const byte *data, size_t bits, double quality, const char *source)
   {
+    unsigned long nowM = millis();
+
+    // it it has been more than 1 s since the last dump
+    if ((lastDump != 0) && ((nowM - lastDump) > 1000)) {
+
+      // separate the dumps by a new line
+      Serial.print("\n");
+    }
+
+    lastDump = nowM;
+
     // dump the received data 
-    Serial.print("Received ");
+    Serial.print(nowM);
+    Serial.print(": received ");
     Serial.print(bits);
     Serial.print(" bits, via source ");
     Serial.print(source);
@@ -100,6 +120,16 @@ RC433HQNoiseFilter noiseFilter(buffer, 3);
 // the 433 MHz receiver instance. Passes data to noise filter.
 RC433HQReceiver receiver(noiseFilter, 2);
 
+// we will calculate and dump performance statistics every 10s
+static const unsigned long STATS_PERIOD = 10*1000;
+
+unsigned long startTimeMillis;
+
+unsigned long iterationsCount = 0;
+unsigned long totalProcessedCount = 0;
+unsigned long totalMissedCount = 0;
+
+
 void setup()
 {
   Serial.begin(9600);
@@ -107,7 +137,13 @@ void setup()
 
   decoderA.SetLogger(logger);
   decoderB.SetLogger(logger);
+
+  startTimeMillis = millis();
+  iterationsCount = 0;
+  totalProcessedCount = 0;
+  totalMissedCount = 0;
 }
+
 
 void loop()
 {
@@ -116,15 +152,27 @@ void loop()
   size_t reportedMissedCount = 0;
   buffer.ProcessData(reportedUsedCount, reportedMissedCount);
 
-  /*
-  // if some data were processed
-  if (reportedUsedCount > 0 || reportedMissedCount > 0) {
+  // add the counts to the statistics
+  iterationsCount++;
+  totalProcessedCount += reportedUsedCount;
+  totalMissedCount += reportedMissedCount;
+
+  // if we've been processing data at least STATS_PERIOD
+  if ((millis() - startTimeMillis) >= STATS_PERIOD) {
+
+    // dump the statistics
     Serial.print("Data processing statistics: ");
-    Serial.print(reportedUsedCount);
+    Serial.print(iterationsCount);
+    Serial.print(" iterations, ");
+    Serial.print(totalProcessedCount);
     Serial.print(" edges processed, ");
-    Serial.print(reportedMissedCount);
+    Serial.print(totalMissedCount);
     Serial.print(" edges missed.\n");
+
+    startTimeMillis = millis();
+    iterationsCount = 0;
+    totalProcessedCount = 0;
+    totalMissedCount = 0;
   }
-  */
 }
 
