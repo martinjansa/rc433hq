@@ -375,6 +375,7 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
                         // start a new sequence after the successfull sync
                         ClearReceivedBits();
                         syncDetected = true;
+                        syncTime = previousRisingEdgeTime;
                     }
                 }
             }
@@ -475,7 +476,7 @@ void RC433HQBasicSyncPulseDecoder::SendReceivedData()
     }
 
     // send the data to the data receiver
-    dataReceiver.HandleData(receivedData, receivedBits, quality);
+    dataReceiver.HandleData(syncTime, receivedData, receivedBits, quality);
     ClearReceivedBits();
 }
 

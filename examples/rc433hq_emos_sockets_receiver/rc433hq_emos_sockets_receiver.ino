@@ -66,21 +66,19 @@ public:
   {
   }
 
-  virtual void DumpData(const byte *data, size_t bits, double quality, const char *source)
+  virtual void DumpData(RC433HQMicroseconds time, const byte *data, size_t bits, double quality, const char *source)
   {
-    unsigned long nowM = millis();
-
     // it it has been more than 1 s since the last dump
-    if ((lastDump != 0) && ((nowM - lastDump) > 1000)) {
+    if ((lastDump != 0) && ((time - lastDump) > (RC433HQMicroseconds(1000) * 1000))) {
 
       // separate the dumps by a new line
       Serial.print("\n");
     }
 
-    lastDump = nowM;
+    lastDump = time;
 
     // dump the received data 
-    Serial.print(nowM);
+    Serial.print(time);
     Serial.print(": received ");
     Serial.print(bits);
     Serial.print(" bits, via source ");
@@ -113,9 +111,9 @@ public:
     source(asource)
   {
   }
-  virtual void HandleData(const byte *data, size_t bits, double quality)
+  virtual void HandleData(RC433HQMicroseconds time, const byte *data, size_t bits, double quality)
   {
-    dumper.DumpData(data, bits, quality, source);
+    dumper.DumpData(time, data, bits, quality, source);
   }
 };
 

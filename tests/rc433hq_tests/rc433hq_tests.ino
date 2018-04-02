@@ -104,6 +104,7 @@ public:
 
 class DataReceiverMock: public IRC433DataReceiver {
 private:
+  RC433HQMicroseconds storedTime;
   byte storedData[16];
   size_t storedBitsCount;
   double storedQuality;
@@ -113,8 +114,10 @@ public:
     storedQuality(0.0)
   {
   }
-  virtual void HandleData(const byte *data, size_t bits, double quality)
+  virtual void HandleData(RC433HQMicroseconds time, const byte *data, size_t bits, double quality)
   {
+    storedTime = time;
+    
     // if the is enough space in the internal buffer
     if ((0 < bits) && (bits <= (8 * 16))) {
 

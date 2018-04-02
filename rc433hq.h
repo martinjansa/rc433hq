@@ -55,7 +55,7 @@ public:
  */
 class IRC433DataReceiver {
 public:
-	virtual void HandleData(const byte *data, size_t bits, double quality) = 0;
+	virtual void HandleData(RC433HQMicroseconds time, const byte *data, size_t bits, double quality) = 0;
 	
 };
 
@@ -175,6 +175,7 @@ private:
 	bool highFirst;
 	word minBits, maxBits;
 	bool syncDetected;
+	RC433HQMicroseconds syncTime; 
 	byte receivedData[RC433HQ_MAX_PULSE_BITS / 8];
 	size_t receivedBits;
 	bool previousRisingEdge;
