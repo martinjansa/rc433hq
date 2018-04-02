@@ -66,6 +66,29 @@ public:
 	virtual void HandleEdge(RC433HQMicroseconds time, bool direction) = 0;
 };
 
+
+/** \brief Signal splitter allows two proessors to be connected to a single signal source
+ */
+class RC433PulseSignalSplitter: public IRC433PulseProcessor {
+private:
+	IRC433PulseProcessor &first;
+	IRC433PulseProcessor &second;
+public:
+	RC433PulseSignalSplitter(IRC433PulseProcessor &afirst, IRC433PulseProcessor &asecond):
+		first(afirst),
+		second(asecond)
+	{
+	}
+	
+	virtual void HandleEdge(RC433HQMicroseconds time, bool direction)
+	{
+		// handle the edge in both attached processors
+		first.HandleEdge(time, direction);
+		second.HandleEdge(time, direction);
+	}
+};
+
+
 /** \brief PulseBuffer implements the IRC433PulseProcessor, minimizes the time in the interrupt and passes the buffered data into the connected pulse decoder from the Process() method that needs to be periodically called from the loop
  */
 class RC433HQPulseBuffer: public IRC433PulseProcessor {

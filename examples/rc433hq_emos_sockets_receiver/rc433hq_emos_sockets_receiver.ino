@@ -31,17 +31,16 @@ public:
   }
 };
 
-class ReceivedDataDumper: public IRC433DataReceiver {
+class ReceivedDataDumper {
 public:
-  ReceivedDataDumper()
-  {
-  }
-  virtual void HandleData(const byte *data, size_t bits, double quality)
+  virtual void DumpData(const byte *data, size_t bits, double quality, const char *source)
   {
     // dump the received data 
     Serial.print("Received ");
     Serial.print(bits);
-    Serial.print(" bits, binary: ");
+    Serial.print(" bits, via source ");
+    Serial.print(source);
+    Serial.print(" binary: ");
     int i;
     for (i = 0; i < (bits >> 3); i++) {
       Serial.print(data[i], BIN);
@@ -59,17 +58,41 @@ public:
 };
 
 
+class ReceivedDataHandler: public IRC433DataReceiver {
+private:
+  ReceivedDataDumper &dumper;
+  const char *source;
+public:
+  ReceivedDataHandler(ReceivedDataDumper &adumper, const char *asource):
+    dumper(adumper),
+    source(asource)
+  {
+  }
+  virtual void HandleData(const byte *data, size_t bits, double quality)
+  {
+    dumper.DumpData(data, bits, quality, source);
+  }
+};
+
+
 // logger, dumps log messages to serial
 Logger logger(LED_BUILTIN);
 
 // the instance of the data dumper - prints all the data received via the HandleData()
 ReceivedDataDumper recivedDataDumper;
 
-// the instamce of the data decoder - decodes the EMOS Sockets protocol and hands the decoded data over to recivedDataDumper
-RC433HQEmosSocketsPulseDecoderA decoder(recivedDataDumper);
+ReceivedDataHandler handlerA(recivedDataDumper, "A");
+ReceivedDataHandler handlerB(recivedDataDumper, "B");
+
+// the instaces of the EMOS Socket data decoders for bot protocols A and B
+RC433HQEmosSocketsPulseDecoderA decoderA(handlerA);
+RC433HQEmosSocketsPulseDecoderB decoderB(handlerB);
+
+// signal splitter to process the signal by both EMOS Socket processors A and B
+RC433PulseSignalSplitter signalSplitter(decoderA, decoderB);
 
 // buffer for handled data
-RC433HQPulseBuffer buffer(decoder, 128);
+RC433HQPulseBuffer buffer(signalSplitter, 128);
 
 // the instance of noise filter, that ignores all the very short pulses and passes the clean data to decoder
 RC433HQNoiseFilter noiseFilter(buffer, 3);
@@ -82,7 +105,8 @@ void setup()
   Serial.begin(9600);
   while(!Serial) {} // Portability for Leonardo/Micro
 
-  decoder.SetLogger(logger);
+  decoderA.SetLogger(logger);
+  decoderB.SetLogger(logger);
 }
 
 void loop()
