@@ -36,7 +36,7 @@ public:
   ReceivedDataDumper()
   {
   }
-  virtual void HandleData(const byte *data, size_t bits)
+  virtual void HandleData(const byte *data, size_t bits, double quality)
   {
     // dump the received data 
     Serial.print("Received ");
@@ -52,7 +52,9 @@ public:
       Serial.print(data[i], HEX);
       Serial.print(" ");
     }
-    Serial.print("\n");
+    Serial.print(", quality ");
+    Serial.print(quality);
+    Serial.print(" %\n");
   }
 };
 
@@ -64,13 +66,13 @@ Logger logger(LED_BUILTIN);
 ReceivedDataDumper recivedDataDumper;
 
 // the instamce of the data decoder - decodes the EMOS Sockets protocol and hands the decoded data over to recivedDataDumper
-RC433HQEmosSocketsPulseDecoder decoder(recivedDataDumper);
+RC433HQEmosSocketsPulseDecoderA decoder(recivedDataDumper);
 
 // buffer for handled data
 RC433HQPulseBuffer buffer(decoder, 128);
 
 // the instance of noise filter, that ignores all the very short pulses and passes the clean data to decoder
-RC433HQNoiseFilter noiseFilter(buffer, 10);
+RC433HQNoiseFilter noiseFilter(buffer, 3);
 
 // the 433 MHz receiver instance. Passes data to noise filter.
 RC433HQReceiver receiver(noiseFilter, 2);

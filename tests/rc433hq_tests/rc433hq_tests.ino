@@ -85,12 +85,14 @@ class DataReceiverMock: public IRC433DataReceiver {
 private:
   byte storedData[16];
   size_t storedBitsCount;
+  double storedQuality;
 public:
   DataReceiverMock():
-    storedBitsCount(0)
+    storedBitsCount(0),
+    storedQuality(0.0)
   {
   }
-  virtual void HandleData(const byte *data, size_t bits)
+  virtual void HandleData(const byte *data, size_t bits, double quality)
   {
     // if the is enough space in the internal buffer
     if ((0 < bits) && (bits <= (8 * 16))) {
@@ -103,14 +105,17 @@ public:
 
       storedBitsCount = 0;
     }
+    storedQuality = quality;
   }
   
-  void AssertHandleDataCalled(const byte *expectedData, size_t expectedBits)
+  void AssertHandleDataCalled(const byte *expectedData, size_t expectedBits, double expectedQualityMin = 0.0, double expectedQualityMax = 100.0)
   {
     assertEqual(storedBitsCount, expectedBits);
     for (size_t i = 0; i < (storedBitsCount >> 3); i++) {
       assertEqual(storedData[i], expectedData[i]);
     }
+    ASSERT_LE_3(expectedQualityMin, storedQuality, "stored quality above the minimal value");
+    ASSERT_LE_3(storedQuality, expectedQualityMax, "stored quality bellow the maximal value");
   }
 };
 
@@ -271,7 +276,7 @@ test(BasicPulseDecoder_ShouldDecodePreciseOneBitFollowedBySyncForMaxLen1)
   
   // then
   byte expected[] = { 0x01 };
-  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+  dataReceiverMock.AssertHandleDataCalled(expected, 1, 100.0, 100.0);
 }
 
 test(BasicPulseDecoder_ShouldDecodePreciseZeroBitFollowedBySyncForMaxLen1)
@@ -291,7 +296,7 @@ test(BasicPulseDecoder_ShouldDecodePreciseZeroBitFollowedBySyncForMaxLen1)
   
   // then
   byte expected[] = { 0x00 };
-  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+  dataReceiverMock.AssertHandleDataCalled(expected, 1, 100.0, 100.0);
 }
 
 test(BasicPulseDecoder_ShouldDecodeUnpreciseLowOneBitFollowedBySyncForMaxLen1)
@@ -311,7 +316,7 @@ test(BasicPulseDecoder_ShouldDecodeUnpreciseLowOneBitFollowedBySyncForMaxLen1)
   
   // then
   byte expected[] = { 0x01 };
-  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+  dataReceiverMock.AssertHandleDataCalled(expected, 1, 0.0, 10.0);
 }
 
 test(BasicPulseDecoder_ShouldDecodeUnpreciseLowZeroBitFollowedBySyncForMaxLen1)
@@ -331,7 +336,7 @@ test(BasicPulseDecoder_ShouldDecodeUnpreciseLowZeroBitFollowedBySyncForMaxLen1)
   
   // then
   byte expected[] = { 0x00 };
-  dataReceiverMock.AssertHandleDataCalled(expected, 1);
+  dataReceiverMock.AssertHandleDataCalled(expected, 1, 45.0, 55.0);
 }
 
 test(BasicPulseDecoder_ShouldDecodePreciseOneBitFollowedBySyncForMaxLen2)
@@ -484,6 +489,10 @@ void setup()
   while(!Serial) {} // Portability for Leonardo/Micro
 
   Test::min_verbosity |= TEST_VERBOSITY_ASSERTIONS_FAILED;
+  //Test::min_verbosity |= TEST_VERBOSITY_ASSERTIONS_ALL;
+
+  //Test::exclude("*");
+  //Test::include("BasicPulseDecoder_ShouldDecodeUnprecise*");
 }
 
 void loop()

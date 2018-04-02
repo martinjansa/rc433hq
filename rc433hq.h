@@ -7,6 +7,8 @@
 #else
 #	include <stdint.h>
 #	include <stddef.h>
+#	include <math.h>
+
 #	define byte uint8_t
 #	define word uint16_t
 
@@ -53,7 +55,7 @@ public:
  */
 class IRC433DataReceiver {
 public:
-	virtual void HandleData(const byte *data, size_t bits) = 0;
+	virtual void HandleData(const byte *data, size_t bits, double quality) = 0;
 	
 };
 
@@ -132,7 +134,7 @@ private:
 	RC433HQMicroseconds previousRisingEdgeTime;
 	bool previousFallingEdge;
 	RC433HQMicroseconds previousFallingEdgeTime;
-
+	double deltaPowerSum;  // sum of delta^2 for individual edges
 	
 public:	
 	RC433HQBasicSyncPulseDecoder(IRC433DataReceiver &adataReceiver, word asyncFirstUs, word asyncSecondUs, word azeroFirstUs, word azeroSecondUs, word aoneFirstUs, word aoneSecondUs, word atoleranceUs, bool ahighFirst, word aminBits, word amaxBits):
@@ -170,8 +172,16 @@ public:
 	virtual void HandleEdge(RC433HQMicroseconds time, bool drection);
 
 protected:
+	// bits operations
 	void ClearReceivedBits();
 	void StoreReceivedBit(byte bit);
+
+	// quality calculations
+	void CalculateDelta(RC433HQMicroseconds expected, RC433HQMicroseconds actual);
+	void ClearDelta();
+
+	// sending of the cached data
+	void SendReceivedData();
 };
 
 

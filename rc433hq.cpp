@@ -1,6 +1,7 @@
 #include "rc433hq.h"
 
 #include <string.h>
+#include <stdio.h>
 
 bool EqualWithTolerance(RC433HQMicroseconds a, RC433HQMicroseconds b, RC433HQMicroseconds tolerance)
 {
@@ -195,6 +196,10 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
 
                 LOG_MESSAGE("Sync detected and pulse represents bit 1.\n");
 
+                // calculate the delta
+                CalculateDelta(highDuration, oneFirstUs);
+                CalculateDelta(lowDuration, oneSecondUs);
+
                 // store the bit
                 StoreReceivedBit(1);
 
@@ -203,10 +208,9 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
 
                     LOG_MESSAGE("Max bits received, sending data.\n");
 
-                    // send the data to the data receiver
-                    dataReceiver.HandleData(receivedData, receivedBits);
+                    // send the data to the data receiver and clear the buffer
+                    SendReceivedData();
                     syncDetected = false;
-                    ClearReceivedBits();
                 }
 
             } else {
@@ -216,6 +220,10 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
 
                     LOG_MESSAGE("Sync detected and pulse represents bit 0.\n");
 
+                    // calculate the delta
+                    CalculateDelta(highDuration, zeroFirstUs);
+                    CalculateDelta(lowDuration, zeroSecondUs);
+
                     // store the bit
                     StoreReceivedBit(0);
 
@@ -224,10 +232,11 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
 
                         LOG_MESSAGE("Max bits received, sending data.\n");
 
-                        // send the data to the data receiver
-                        dataReceiver.HandleData(receivedData, receivedBits);
+                        // send the data to the data receiver and clear the buffer
+                        SendReceivedData();
+
+                        // no sync anymore
                         syncDetected = false;
-                        ClearReceivedBits();
                     }
 
                 } else {
@@ -239,9 +248,11 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
 
                         LOG_MESSAGE("Min bits received before non data pulse, sending data.\n");
 
-                        // send the data to the data receiver
-                        dataReceiver.HandleData(receivedData, receivedBits);
-                        ClearReceivedBits();
+                        // send the data to the data receiver and clear the buffer
+                        SendReceivedData();
+
+                        // we are out of sync now
+                        syncDetected = false;
                     }
 
                     // if the sync pulse was detected
@@ -249,9 +260,14 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
 
                         LOG_MESSAGE("Sync pulse deteceted.\n");
 
+                        // calculate the delta of the sync
+                        ClearDelta();
+                        CalculateDelta(highDuration, syncFirstUs);
+                        CalculateDelta(lowDuration, syncSecondUs);
+
                         // start a new sequence after the successfull sync
-                        syncDetected = true;
                         ClearReceivedBits();
+                        syncDetected = true;
                     }
                 }
             }
@@ -273,16 +289,31 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
     }
 }
 
-void RC433HQBasicSyncPulseDecoder::ClearReceivedBits()
+void RC433HQBasicSyncPulseDecoder::CalculateDelta(RC433HQMicroseconds expected, RC433HQMicroseconds actual)
 {
-    memset(receivedData, 0, RC433HQ_MAX_PULSE_BITS >> 3);
-    receivedBits = 0;
+    if (toleranceUs != 0) {
+        double delta;
+        if (expected < actual) {
+            delta = actual - expected;
+        } else {
+            delta = expected - actual;
+        }
+        deltaPowerSum += (delta * delta);
+    }
+}
+
+void RC433HQBasicSyncPulseDecoder::ClearDelta()
+{
+    LOG_MESSAGE("Clearing delta sum.\n");
+    deltaPowerSum = 0;
 }
 
 void RC433HQBasicSyncPulseDecoder::StoreReceivedBit(byte bit)
 {
     if (receivedBits < RC433HQ_MAX_PULSE_BITS) {
     
+        LOG_MESSAGE("Storing bit.\n");
+
         // store the bit
         size_t offset = (receivedBits >> 3);
         receivedData[offset] = (receivedData[offset] << 1) | bit;
@@ -290,6 +321,45 @@ void RC433HQBasicSyncPulseDecoder::StoreReceivedBit(byte bit)
         // increase the number of stored bits
         receivedBits++;
     }
+}
+
+void RC433HQBasicSyncPulseDecoder::ClearReceivedBits()
+{
+    LOG_MESSAGE("Clearing recevied bits cache.\n");
+
+    memset(receivedData, 0, RC433HQ_MAX_PULSE_BITS >> 3);
+    receivedBits = 0;
+}
+
+void RC433HQBasicSyncPulseDecoder::SendReceivedData()
+{
+    // data quality is 100% - totalDelta / tolerance. The range is 0% (always at tolerance) to 100% (always exact)
+    double quality;
+    
+    if (toleranceUs != 0) {
+
+        // calcutate the precission out of the average of the squares of the deltas for all edges
+        double totalDelta = sqrt(deltaPowerSum / (2 *  (receivedBits + 1)));
+        quality = 100.0 * (1.0 - (totalDelta / toleranceUs));
+
+#       if defined DEBUG && !defined ARDUINO
+
+        char buf[128];
+        sprintf(buf, "Calculating quality with tolerace = %i, delta sq sum = %f, quality = %f.\n", int(toleranceUs), deltaPowerSum, quality);
+        LOG_MESSAGE(buf);
+
+#       endif // defined DEBUG
+
+    } else {
+
+        LOG_MESSAGE("Setting quality as 100 per cent.\n");
+
+        quality = 100.0;
+    }
+
+    // send the data to the data receiver
+    dataReceiver.HandleData(receivedData, receivedBits, quality);
+    ClearReceivedBits();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
