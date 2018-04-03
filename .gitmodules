@@ -1,0 +1,3 @@
+[submodule "libraries/eRCaGuy_TimerCounter"]
+	path = libraries/eRCaGuy_TimerCounter
+	url = git@github.com:ElectricRCAircraftGuy/eRCaGuy_TimerCounter.git
