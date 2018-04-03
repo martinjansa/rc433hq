@@ -102,10 +102,6 @@ public:
 	// comparison with the same type
 	bool operator==(const RC433HQMicroseconds &that) const { return us == that.us; }
 	bool operator!=(const RC433HQMicroseconds &that) const { return !(*this == that); }
-	bool operator<(const RC433HQMicroseconds &that) const { return us < that.us; }
-	bool operator<=(const RC433HQMicroseconds &that) const { return us <= that.us; }
-	bool operator>(const RC433HQMicroseconds &that) const { return us > that.us; }
-	bool operator>=(const RC433HQMicroseconds &that) const { return us >= that.us; }
 
 	// addition of absolute time and difference via +=
 	RC433HQMicroseconds &operator+=(const RC433HQMicrosecondsDiff &diff) { us += diff.us; return *this; }
@@ -129,10 +125,10 @@ class RC433HQTimeService {
 public:
 
 	// get the count of microseconds
-	static RC433HQMicroseconds GetTimeInMicroseconds() { return micros(); }
+	static RC433HQMicroseconds GetTimeInMicroseconds();
 
 	// delay in microseconds
-	static void SleepMicroseconds(RC433HQMicrosecondsDiff delay) { delayMicroseconds(delay.GetUnsignedLong()); }
+	static void SleepMicroseconds(RC433HQMicrosecondsDiff delay);
 
 };
 

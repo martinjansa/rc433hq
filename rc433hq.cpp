@@ -3,10 +3,81 @@
 #include <string.h>
 #include <stdio.h>
 
+
+#if defined ARDUINO
+
+    // if USE_ERCA_GUY_TIMER is defined, we will use the https://github.com/ElectricRCAircraftGuy/eRCaGuy_TimerCounter library instead of standard
+    // micros() function. The micros() has a precision of 4 us, while the eRCaGuy claims 0.5 us for his library
+//#   define USE_ERCA_GUY_TIMER
+
+#endif  // defined ARDUINO
+
+
+#if defined USE_ERCA_GUY_TIMER
+#   include "libraries\eRCaGuy_TimerCounter\eRCaGuy_Timer2_Counter.cpp"
+//#   include <libraries\eRCaGuy_TimerCounter\eRCaGuy_Timer2_Counter.h>
+#endif  // defined USE_ERCA_GUY_TIMER
+
 bool EqualWithTolerance(RC433HQMicrosecondsDiff a, RC433HQMicrosecondsDiff b, RC433HQMicrosecondsDiff tolerance)
 {
     return ((a - tolerance) <= b) && (b <= (a + tolerance));
 }
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQTimeService implementation
+//////////////////////////////////////////////////////////////////////////////////
+
+#   if defined USE_ERCA_GUY_TIMER
+
+    // helper class that initializes the timer library
+    class ErcaGuyTimerHelper {
+    private:
+        eRCaGuy_Timer2_Counter ercaTimer;
+
+    public:
+        ErcaGuyTimerHelper()
+        {
+            ercaTimer.setup();
+        }
+        ~ErcaGuyTimerHelper()
+        {
+            ercaTimer.unsetup();
+        }
+        unsigned long micros()
+        {
+            return ercaTimer.get_count() >> 1;
+        }
+    };
+
+    static ErcaGuyTimerHelper ercaGuyTimerHelper;
+
+#   endif  // defined USE_ERCA_GUY_TIMER
+
+
+// get the count of microseconds
+RC433HQMicroseconds RC433HQTimeService::GetTimeInMicroseconds()
+{ 
+
+#   if defined USE_ERCA_GUY_TIMER
+
+        // get the micros via the eRCaGuy's library
+        return ercaGuyTimerHelper.micros();
+
+#   else   // defined USE_ERCA_GUY_TIMER
+
+        // use the standard micros() function
+        return micros();
+
+#   endif  // defined USE_ERCA_GUY_TIMER
+
+}
+
+// delay in microseconds
+void RC433HQTimeService::SleepMicroseconds(RC433HQMicrosecondsDiff delay)
+{ 
+    delayMicroseconds(delay.GetUnsignedLong()); 
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////
 // RC433HQPulseBuffer implementation

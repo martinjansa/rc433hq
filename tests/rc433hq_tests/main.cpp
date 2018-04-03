@@ -42,4 +42,9 @@ unsigned long millis() {
 std::ostream &operator<<(std::ostream &output, const RC433HQMicroseconds &that) { output << that.GetUnsignedLong(); return output; }
 std::ostream &operator<<(std::ostream &output, const RC433HQMicrosecondsDiff &that) { output << that.GetUnsignedLong(); return output; }
 
+bool operator<(const RC433HQMicroseconds &a, const RC433HQMicroseconds &b) { return a.GetUnsignedLong() < b.GetUnsignedLong(); }
+bool operator<=(const RC433HQMicroseconds &a, const RC433HQMicroseconds &b) { return a.GetUnsignedLong() <= b.GetUnsignedLong(); }
+bool operator>(const RC433HQMicroseconds &a, const RC433HQMicroseconds &b) { return a.GetUnsignedLong() > b.GetUnsignedLong(); }
+bool operator>=(const RC433HQMicroseconds &a, const RC433HQMicroseconds &b) { return a.GetUnsignedLong() >= b.GetUnsignedLong(); }
+
 #endif
