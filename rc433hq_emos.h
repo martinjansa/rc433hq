@@ -6,7 +6,7 @@
 class RC433HQEmosSocketsPulseDecoderA: public RC433HQBasicSyncPulseDecoder {
 public:
     RC433HQEmosSocketsPulseDecoderA(IRC433DataReceiver &adataReceiver):
-        RC433HQBasicSyncPulseDecoder(adataReceiver, 272, 2381, 299, 1235, 1076, 480, 50, true, 24, 24)
+        RC433HQBasicSyncPulseDecoder(adataReceiver, 272, 2381, 299, 1235, 1076, 480, 50, true, 24, 24 )
     {
     }
 };
@@ -15,7 +15,25 @@ public:
 class RC433HQEmosSocketsPulseDecoderB: public RC433HQBasicSyncPulseDecoder {
 public:
     RC433HQEmosSocketsPulseDecoderB(IRC433DataReceiver &adataReceiver):
-        RC433HQBasicSyncPulseDecoder(adataReceiver, 2948, 7302, 401, 1134, 918, 617, 50, true, 24, 24)
+        RC433HQBasicSyncPulseDecoder(adataReceiver, 2948, 7302, 401, 1134, 918, 617, 50, true, 24, 24 )
+    {
+    }
+};
+
+// EMOS Sockets encoding A encoder
+class RC433HQEmosSocketsPulseEncoderA: public RC433HQBasicSyncPulseEncoder {
+public:
+    RC433HQEmosSocketsPulseEncoderA():
+        RC433HQBasicSyncPulseEncoder(272, 2381, 299, 1235, 1076, 480, true )
+    {
+    }
+};
+
+// EMOS Sockets encoding B encoder
+class RC433HQEmosSocketsPulseEncoderB: public RC433HQBasicSyncPulseEncoder {
+public:
+    RC433HQEmosSocketsPulseEncoderB():
+        RC433HQBasicSyncPulseEncoder(2948, 7302, 401, 1134, 918, 617, true )
     {
     }
 };

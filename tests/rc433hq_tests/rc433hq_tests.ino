@@ -32,9 +32,9 @@ public:
   {
   }
 
-  void SendEdge(bool high, RC433HQMicroseconds delayAfter)
+  void SendEdge(bool direction, RC433HQMicroseconds delayAfter)
   {
-    decoder.HandleEdge(lastPulseStart, high);
+    decoder.HandleEdge(lastPulseStart, direction);
     lastPulseStart += delayAfter;
   }
 
@@ -117,7 +117,7 @@ public:
   virtual void HandleData(RC433HQMicroseconds time, const byte *data, size_t bits, double quality)
   {
     storedTime = time;
-    
+
     // if the is enough space in the internal buffer
     if ((0 < bits) && (bits <= (8 * 16))) {
 
@@ -140,6 +140,48 @@ public:
     }
     ASSERT_LE_3(expectedQualityMin, storedQuality, "stored quality above the minimal value");
     ASSERT_LE_3(storedQuality, expectedQualityMax, "stored quality bellow the maximal value");
+  }
+};
+
+class TransmitterMock: public RC433HQDataTransmitterBase {
+private:
+  size_t bufferCapacity;
+  size_t bufferSize;
+  bool *directions;
+  RC433HQMicroseconds *durations;
+
+public:
+  TransmitterMock(size_t abufferCapacity):
+    bufferCapacity(abufferCapacity),
+    bufferSize(0)
+  {
+    directions = new bool [bufferCapacity];
+    durations = new RC433HQMicroseconds [bufferCapacity];
+  }
+
+  ~TransmitterMock()
+  {
+    delete [] durations; durations = 0;
+    delete [] directions; directions = 0;
+  }
+
+	virtual void TransmitEdge(bool direction, RC433HQMicroseconds duration)
+  {
+    // if there is space in the buffers
+    if (directions && durations && bufferSize < bufferCapacity) {
+      directions[bufferSize] = direction;
+      durations[bufferSize] = duration;
+    }
+    bufferSize++;
+  }
+
+  void AssertEdgesTransmitted(const bool *expectedDirections, const RC433HQMicroseconds *expectedDurations, size_t expectedCount)
+  {
+    assertEqual(bufferSize, expectedCount);
+    for (size_t i = 0; i < bufferSize; i++) {
+      assertEqual(directions[i], expectedDirections[i]);
+      assertEqual(durations[i], expectedDurations[i]);
+    }
   }
 };
 
@@ -508,6 +550,79 @@ test(BasicPulseDecoder_ShouldInorePrecise2OneBitsFollowedByInvalidSignalForMinLe
   byte expected[] = { 0x00 };
   dataReceiverMock.AssertHandleDataCalled(expected, 0);
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////
+// TransmitterMock tests
+//////////////////////////////////////////////////////////////////////////////////
+
+test(BasicPulseEncoder_ShouldEncodeOneBit)
+{
+  // given
+  TransmitterMock transmitterMock(4);
+  RC433HQBasicSyncPulseEncoder encoder(40, 40, 10, 30, 30, 10, true);
+
+  // when
+  byte val = 0x01;
+  encoder.EncodeData(transmitterMock, &val, 1, 1);
+  
+  // then
+  const bool expectedDirections [] = { true, false, true, false };
+  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 30, 10 };
+  transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 4);
+}
+
+
+test(BasicPulseEncoder_ShouldEncodeZeroBit)
+{
+  // given
+  TransmitterMock transmitterMock(4);
+  RC433HQBasicSyncPulseEncoder encoder(40, 40, 10, 30, 30, 10, true);
+
+  // when
+  byte val = 0x00;
+  encoder.EncodeData(transmitterMock, &val, 1, 1);
+  
+  // then
+  const bool expectedDirections [] = { true, false, true, false };
+  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 10, 30 };
+  transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 4);
+}
+
+
+test(BasicPulseEncoder_ShouldEncode8Bits)
+{
+  // given
+  TransmitterMock transmitterMock(18);
+  RC433HQBasicSyncPulseEncoder encoder(40, 40, 10, 30, 30, 10, true);
+
+  // when
+  const byte val[] = { 0xAA };
+  encoder.EncodeData(transmitterMock, val, 8, 1);
+  
+  // then
+  const bool expectedDirections [] = { true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false };
+  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30 };
+  transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 18);
+}
+
+
+test(BasicPulseEncoder_ShouldEncode16Bits)
+{
+  // given
+  TransmitterMock transmitterMock(34);
+  RC433HQBasicSyncPulseEncoder encoder(40, 40, 10, 30, 30, 10, true);
+
+  // when
+  const byte val[] = { 0xAA, 0x55 };
+  encoder.EncodeData(transmitterMock, val, 16, 1);
+  
+  // then
+  const bool expectedDirections [] = { true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false };
+  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10 };
+  transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 34);
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////
 // Test driver infrastructure

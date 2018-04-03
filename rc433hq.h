@@ -22,7 +22,9 @@
 #	define interrupts()
 #	define attachInterrupt(num, ptr, mode)
 #	define detachInterrupt(num)
+#	define pinMode(pin, mode)
 #	define digitalRead(pin) 0
+#	define digitalWrite(pin, value)
 #	define micros() 0
 #	define pinMode(pin, mode)
 
@@ -40,8 +42,9 @@
 
 typedef unsigned long RC433HQMicroseconds;
 
-// compares the two microseconds times with and returns true if equal withing a given tolerance
-bool EqualWithTolerance(RC433HQMicroseconds a, RC433HQMicroseconds b, RC433HQMicroseconds tolerance);
+//////////////////////////////////////////////////////////////////////////////////
+// IRC433Logger declaration
+//////////////////////////////////////////////////////////////////////////////////
 
 /** \brief Logger interface responsible writing log messages
  */
@@ -51,6 +54,11 @@ public:
 	
 };
 
+
+//////////////////////////////////////////////////////////////////////////////////
+// IRC433DataReceiver declaration
+//////////////////////////////////////////////////////////////////////////////////
+
 /** \brief Data handler interface responsible for decoding of the binary data into information packets
  */
 class IRC433DataReceiver {
@@ -58,6 +66,11 @@ public:
 	virtual void HandleData(RC433HQMicroseconds time, const byte *data, size_t bits, double quality) = 0;
 	
 };
+
+
+//////////////////////////////////////////////////////////////////////////////////
+// IRC433PulseProcessor declaration
+//////////////////////////////////////////////////////////////////////////////////
 
 /** \brief Line protocol interface responsible for decoding of the pulses into the binary data
  */
@@ -72,6 +85,38 @@ public:
 	}
 };
 
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQDataTransmitterBase declaration
+//////////////////////////////////////////////////////////////////////////////////
+
+// Interface for the transmitter that accepts the endoded data to be send via the HW layer
+class RC433HQDataTransmitterBase {
+public:
+
+	// transmit the rising or falling edge and plan waiting after it
+	virtual void TransmitEdge(bool direction, RC433HQMicroseconds duration) = 0;
+
+	// transmit the pulse starting with rising edge
+	void TransmitPulse(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration)
+	{
+		TransmitEdge(true, highDuration);
+		TransmitEdge(false, lowDuration);
+	}
+
+	// transmit the repeated pulses
+	void TransmitPulses(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration, size_t count)
+	{
+		for (size_t i = 0; i < count; i++) {
+			TransmitPulse(highDuration, lowDuration);
+		}
+	}
+
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433PulseSignalSplitter declaration
+//////////////////////////////////////////////////////////////////////////////////
 
 /** \brief Signal splitter allows two proessors to be connected to a single signal source
  */
@@ -101,6 +146,10 @@ public:
 	}
 };
 
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQPulseBuffer declaration
+//////////////////////////////////////////////////////////////////////////////////
 
 /** \brief PulseBuffer implements the IRC433PulseProcessor, minimizes the time in the interrupt and passes the buffered data into the connected pulse decoder from the Process() method that needs to be periodically called from the loop
  */
@@ -140,6 +189,11 @@ private:
 	size_t CalculateNext(size_t index);
 };
 
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQNoiseFilter declaration
+//////////////////////////////////////////////////////////////////////////////////
+
 /** \brief RC433HQNoiseFilter implements the IRC433PulseProcessor, eliminates fast edge changes from the data and forwards (slightly delayed) edges into the connected decoder
  */
 class RC433HQNoiseFilter: public IRC433PulseProcessor {
@@ -161,6 +215,11 @@ public:
 
 	virtual void HandleMissedEdges();
 };
+
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQBasicSyncPulseDecoder declaration
+//////////////////////////////////////////////////////////////////////////////////
 
 static const size_t RC433HQ_MAX_PULSE_BITS = 128;
 
@@ -235,6 +294,36 @@ protected:
 };
 
 
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQBasicSyncPulseEncoder declaration
+//////////////////////////////////////////////////////////////////////////////////
+
+class RC433HQBasicSyncPulseEncoder {
+private:
+	word syncFirstUs, syncSecondUs, zeroFirstUs, zeroSecondUs, oneFirstUs, oneSecondUs;
+	bool highFirst;
+	
+public:	
+	RC433HQBasicSyncPulseEncoder(word asyncFirstUs, word asyncSecondUs, word azeroFirstUs, word azeroSecondUs, word aoneFirstUs, word aoneSecondUs, bool ahighFirst):
+		syncFirstUs(asyncFirstUs),
+		syncSecondUs(asyncSecondUs), 
+		zeroFirstUs(azeroFirstUs), 
+		zeroSecondUs(azeroSecondUs), 
+		oneFirstUs(aoneFirstUs), 
+		oneSecondUs(aoneSecondUs), 
+		highFirst(ahighFirst)
+	{
+	}
+
+	// endode the data (sync + n data bits) and pass it to the transmitter
+	void EncodeData(RC433HQDataTransmitterBase &transmitter, const byte *data, size_t bits, size_t repetitions);
+
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQReceiver declaration
+//////////////////////////////////////////////////////////////////////////////////
+
 class RC433HQReceiver {
 private:
 	static RC433HQReceiver *activeInstance;
@@ -247,10 +336,97 @@ public:
 	RC433HQReceiver(IRC433PulseProcessor &adecoder, int areceiverGpioPin);
 	~RC433HQReceiver();
 
+public:
+	// disables receiving of the data (call before the transmission, if the reception of the transmitted data is not welcome)
+	// Note: it's recommended to use an instance of class RC433HQReceptionDisabler for a temporary disabling and automated enabling
+	void DisableReception();
+
+	// enables the receiving of the data. By default the data reception is enabled.
+	void EnableReception();
+
 protected:
 	// static interrupt handler - registered for the interrupt handling
 	static void HandleInterrupt();
 
 	// internal interrupt handler, called from the static method
 	void HandleInterruptInternal();
+};
+
+// use an instance of this helper class to automatically disable and enable signal reception, when this class is being destroyed
+// Usage:
+//    // an instance of receiver
+//    RC433HQReceiver receiver(...);
+//    ...
+//    {
+//        // disable the reception
+//        RC433HQReceptionDisabler disabler(receiver)
+//
+//        ... do something you want while the reception is disabled - typically transmit the data
+//
+//    } // reception is automatically enabled (you can never forget about this now!)
+//
+class RC433HQReceptionDisabler {
+private:
+	RC433HQReceiver &receiver;
+
+public:
+	RC433HQReceptionDisabler(RC433HQReceiver &areceiver):
+		receiver(areceiver)
+	{
+		// disable the reception when the instance is created
+		receiver.DisableReception();
+	}
+	~RC433HQReceptionDisabler()
+	{
+		// automatically re-enable reception, when this instance is being destroyed
+		receiver.EnableReception();
+	}
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQTransmitter declaration
+//////////////////////////////////////////////////////////////////////////////////
+
+// statistics stucture that is filled in by the transmitter
+struct RC433HQTransmissionQualityStatistics {
+	size_t countOfTransmittedEdges;	               // total count of transmitted edges
+	size_t countOfDelayedEdges;                    // count of edges, where we missed the time of sending
+	size_t countOfDelayedEdgesOutsideOfTolerance;  // count of edges, where we missed the time of sending
+	double averageDelay;                           // average delay in microseconds calculated for the delayed edges
+};
+
+class RC433HQTransmitter: public RC433HQDataTransmitterBase {
+private:
+	int transmitterGpioPin;
+	bool inTransitionMode;
+	RC433HQMicroseconds maxDelayTolerance;
+	RC433HQMicroseconds totalDelayedEdgesDelayTime;
+	RC433HQTransmissionQualityStatistics *transmissionQualityStatistics;
+	bool durationFinishTimeValid;             // specifies whether we are waiting for the duration of the previous edge
+	RC433HQMicroseconds durationFinishTime;   // time in microseconds, when the duration of previous edge should finish
+
+public:
+	RC433HQTransmitter(int atransmitterGpioPin);
+	~RC433HQTransmitter();
+
+	// initializes the data transmission. Data can be sent only if the transmission is started
+	void StartTransmission(RC433HQMicroseconds quietPeriodDurationBefore = 0, RC433HQMicroseconds amaxDelayTolerance = 0, RC433HQTransmissionQualityStatistics *atransmissionQualityStatistics = 0);
+
+	// finalizes the data transmission
+	void EndTransmission(RC433HQMicroseconds quietPeriodDurationAfter = 0);
+
+	// transmit the rising or falling edge and plan waiting after it
+	virtual void TransmitEdge(bool direction, RC433HQMicroseconds duration);
+
+private:
+
+	// report the delay of the transition of the edge into the statistics
+	void ReportEdgeTransitionDelay(RC433HQMicroseconds delay);
+
+	// plan wait for the duration
+	void PlanWaitForDuration(RC433HQMicroseconds duration);
+
+	// if there was a duration of the previous edge or quiet period, wait for it to finish
+	void WaitForThePreviousDurationToFinish();
+
 };

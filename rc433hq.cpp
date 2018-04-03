@@ -481,6 +481,59 @@ void RC433HQBasicSyncPulseDecoder::SendReceivedData()
 }
 
 //////////////////////////////////////////////////////////////////////////////////
+// RC433HQBasicSyncPulseEncoder implementation
+//////////////////////////////////////////////////////////////////////////////////
+
+void RC433HQBasicSyncPulseEncoder::EncodeData(RC433HQDataTransmitterBase &transmitter, const byte *data, size_t bits, size_t repetitions)
+{
+    for (size_t r = 0; r < repetitions; r++) {
+
+        // encode sync pulse
+        transmitter.TransmitPulse(syncFirstUs, syncSecondUs);
+
+        size_t bytes = ((bits + 7) >> 3);
+
+        // for all the bytes
+        for (size_t i = 0; i < bytes; i++) {
+
+            byte byteValue = data[i];
+
+            size_t bitsInThisByte = 8;
+
+            // if this is the last byte
+            if ((i + 1 == bytes) && ((bits & 0x7) != 0)) {
+
+                bitsInThisByte = (bits & 0x7);
+
+                // remove unused higher bits from the last byte value
+                for (size_t j = 8; j > bitsInThisByte; j--) {
+                    byteValue = byteValue << 1;
+                }
+            }
+
+            for (size_t j = 0; j < bitsInThisByte; j++) {
+
+                // get the highest bit
+                bool bitValue = ((byteValue & 0x80) != 0);
+                byteValue = byteValue << 1;
+
+                // if the bit is 1
+                if (bitValue) {
+
+                    // encode 1 pulse
+                    transmitter.TransmitPulse(oneFirstUs, oneSecondUs);
+
+                } else {
+
+                    // encode 0 pulse
+                    transmitter.TransmitPulse(zeroFirstUs, zeroSecondUs);
+                }
+            }
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////
 // RC433HQReceiver implementation
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -530,3 +583,183 @@ void RC433HQReceiver::HandleInterruptInternal()
     // call the decoder to handle the receiver edge change
     decoder.HandleEdge(now, direction);
 }
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQReceiver implementation
+//////////////////////////////////////////////////////////////////////////////////
+
+RC433HQTransmitter::RC433HQTransmitter(int atransmitterGpioPin):
+    transmitterGpioPin(atransmitterGpioPin),
+    inTransitionMode(false),
+    maxDelayTolerance(0),
+    totalDelayedEdgesDelayTime(0),
+    transmissionQualityStatistics(0),
+    durationFinishTimeValid(false)
+{
+    // initialize the GPIO pin for output
+    pinMode(transmitterGpioPin, OUTPUT);
+}
+
+RC433HQTransmitter::~RC433HQTransmitter()
+{
+}
+
+// initializes the data transmission. Data can be sent only if the transmission is started
+void RC433HQTransmitter::StartTransmission(RC433HQMicroseconds quietPeriodDurationBefore, RC433HQMicroseconds amaxDelayTolerance, RC433HQTransmissionQualityStatistics *atransmissionQualityStatistics)
+{
+    // assert(inTransitionMode == false);
+
+    // initialize the transmission
+    inTransitionMode = true;
+    maxDelayTolerance = amaxDelayTolerance;
+    totalDelayedEdgesDelayTime = 0;
+    transmissionQualityStatistics = atransmissionQualityStatistics;
+    durationFinishTimeValid = false;
+
+    // initialize the statistics
+    if (transmissionQualityStatistics) {
+
+        transmissionQualityStatistics->countOfTransmittedEdges = 0;
+        transmissionQualityStatistics->countOfDelayedEdges = 0;
+        transmissionQualityStatistics->countOfDelayedEdgesOutsideOfTolerance = 0;
+        transmissionQualityStatistics->averageDelay = 0;
+    }
+    
+    // if there should be quiet period before the transmission
+    if (quietPeriodDurationBefore > 0) {
+
+        // plan the wait for the end of the quiet period
+        PlanWaitForDuration(quietPeriodDurationBefore);
+    }
+
+}
+
+// finalizes the data transmission
+void RC433HQTransmitter::EndTransmission(RC433HQMicroseconds quietPeriodDurationAfter)
+{
+    // assert(inTransitionMode == true);
+
+    // finish the calculation of the statistics
+    if (transmissionQualityStatistics) {
+
+        // TODO: transmissionQualityStatistics
+        transmissionQualityStatistics->averageDelay = double(totalDelayedEdgesDelayTime) / transmissionQualityStatistics->countOfDelayedEdges;
+    }
+
+    // wait for the previous duration to finish
+    WaitForThePreviousDurationToFinish();
+
+    // if the quiet period after the transmission is defined
+    if (quietPeriodDurationAfter > 0) {
+
+        // wait for the end of the quiet
+        PlanWaitForDuration(quietPeriodDurationAfter);
+        WaitForThePreviousDurationToFinish();
+    }
+
+    // clear the statistics pointer
+    transmissionQualityStatistics = 0;
+
+    // clear the transition flag
+    inTransitionMode = false;
+}
+
+// transmit the rising or falling edge and plan waiting after it
+void RC433HQTransmitter::TransmitEdge(bool direction, RC433HQMicroseconds duration)
+{
+    // wait for the previous duration to finish
+    WaitForThePreviousDurationToFinish();
+
+    // write the value to the pin
+    digitalWrite(transmitterGpioPin, (direction? HIGH: LOW));
+
+    // plan the wait for the end of the pulse duration
+    PlanWaitForDuration(duration);
+}
+
+// report the delay of the transition of the edge into the statistics
+void RC433HQTransmitter::ReportEdgeTransitionDelay(RC433HQMicroseconds delay)
+{
+    // if the statistics structure is provided
+    if (transmissionQualityStatistics) {
+
+        // increment the total count
+        transmissionQualityStatistics->countOfTransmittedEdges++;
+
+        // if the edge was delayed
+        if (delay > 0) {
+
+            // incement the counter of delayed edges
+            transmissionQualityStatistics->countOfDelayedEdges++;
+
+            // add the total delay for later calculation
+            totalDelayedEdgesDelayTime += delay;
+
+            // if the delay was bigger than tolerance
+            if (delay > maxDelayTolerance) {
+
+                // incement the counter of delayed edges outside of tolerance
+                transmissionQualityStatistics->countOfDelayedEdgesOutsideOfTolerance++;
+            }
+        }
+    }
+}
+
+// plan wait for the duration
+void RC433HQTransmitter::PlanWaitForDuration(RC433HQMicroseconds duration)
+{
+    // assert(inTransitionMode == true);
+
+    // if the previous duration finish time is not valid
+    if (!durationFinishTimeValid) {
+
+        // initialize with the current time
+        durationFinishTime = micros();
+
+        // valid since now
+        durationFinishTimeValid = true;
+    }
+        
+    // calculate the end of the duration as relative to the previous finish time duration
+    durationFinishTime += duration;
+}
+
+// if there was a delay after the previous edge or quiet period, wait for it to finish
+void RC433HQTransmitter::WaitForThePreviousDurationToFinish()
+{
+    // initialize the delay value as there is no delay
+    RC433HQMicroseconds delay = 0;
+
+    // if we are waiting for the duration after the previous edge to finish
+    if (durationFinishTimeValid) {
+
+        // TODO: durationFinishTime
+
+        // get the current time in us
+        RC433HQMicroseconds now = micros();
+
+        // calculate time left till end of the duration
+        RC433HQMicroseconds durationLeftTime = durationFinishTime - now;
+
+        // if the time difference is smaller than 1 minute, then we have not yet passed the target time and the subtraction did not overflow
+        if (durationLeftTime < RC433HQMicroseconds(60000000)) {
+
+            // if there is still some time to wait
+            if (durationLeftTime > 0) {
+
+                // wait 
+                delayMicroseconds(durationLeftTime);
+
+                // get the current time again (just for case the delay was not exact and we need to report delay in edge)
+                now = micros();
+            }
+        }
+
+        // calculate how much we are delayed
+        delay = now - durationFinishTime;
+    }
+
+    // report the delay to the statistics
+    ReportEdgeTransitionDelay(delay);
+}
+
