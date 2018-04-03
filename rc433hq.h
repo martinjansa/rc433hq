@@ -26,9 +26,11 @@
 #	define digitalRead(pin) 0
 #	define digitalWrite(pin, value)
 #	define micros() 0
+#	define delayMicroseconds(us)
 #	define pinMode(pin, mode)
 
 #endif // defined(ARDUINO)
+
 
 #ifdef DEBUG
 #	define LOG_MESSAGE(message) LogMessage(message)
@@ -40,7 +42,99 @@
   @file rc433hq.h
 */
 
-typedef unsigned long RC433HQMicroseconds;
+
+//////////////////////////////////////////////////////////////////////////////////
+// RC433HQTimeService declaration
+//////////////////////////////////////////////////////////////////////////////////
+
+// forward definition
+class RC433HQMicroseconds;
+
+class RC433HQMicrosecondsDiff {
+private:
+	friend class RC433HQMicroseconds;
+	
+	unsigned long us;
+
+public:
+	RC433HQMicrosecondsDiff(): us(0) {}
+	RC433HQMicrosecondsDiff(unsigned long aus): us(aus) {}
+	RC433HQMicrosecondsDiff(const RC433HQMicrosecondsDiff &that): us(that.us) {}
+	RC433HQMicrosecondsDiff &operator=(const RC433HQMicrosecondsDiff &that) { if (this != &that) { us = that.us; } return *this; }
+
+	// comparison with the same type
+	bool operator==(const RC433HQMicrosecondsDiff &that) { return us == that.us; }
+	bool operator!=(const RC433HQMicrosecondsDiff &that) { return us != that.us; }
+	bool operator<(const RC433HQMicrosecondsDiff &that) const { return us < that.us; }
+	bool operator<=(const RC433HQMicrosecondsDiff &that) const { return us <= that.us; }
+	bool operator>(const RC433HQMicrosecondsDiff &that) const { return us > that.us; }
+	bool operator>=(const RC433HQMicrosecondsDiff &that) const { return us >= that.us; }
+
+	// aritmetic operators
+	RC433HQMicrosecondsDiff &operator+=(const RC433HQMicrosecondsDiff &diff) { us += diff.us; return *this; }
+	const RC433HQMicrosecondsDiff operator+(const RC433HQMicrosecondsDiff &diff) const { RC433HQMicrosecondsDiff result = *this; result += diff; return result; }
+	const RC433HQMicrosecondsDiff operator-(const RC433HQMicrosecondsDiff &that) const { RC433HQMicrosecondsDiff result; result.us = us - that.us; return result; }
+	
+	// conversions 
+	word GetLoWord() const { return (us & 0xffff); }
+	word GetHiWord() const { return (us >> 16); }
+	double AsDouble() const { return double(us); }
+	unsigned long GetUnsignedLong() const { return us; }
+
+};
+
+class RC433HQMicroseconds {
+private:
+	unsigned long us;
+public:
+	// default constructor
+	RC433HQMicroseconds(): us(0) {}
+
+	// initialization constructor
+	RC433HQMicroseconds(unsigned long aus): us(aus) {}
+
+	// copy constructor
+	RC433HQMicroseconds(const RC433HQMicroseconds &that): us(that.us) {}
+
+	// asignment operator
+	RC433HQMicroseconds &operator=(const RC433HQMicroseconds &that) { if (this != &that) { us = that.us; } return *this; }
+
+	// comparison with the same type
+	bool operator==(const RC433HQMicroseconds &that) const { return us == that.us; }
+	bool operator!=(const RC433HQMicroseconds &that) const { return !(*this == that); }
+	bool operator<(const RC433HQMicroseconds &that) const { return us < that.us; }
+	bool operator<=(const RC433HQMicroseconds &that) const { return us <= that.us; }
+	bool operator>(const RC433HQMicroseconds &that) const { return us > that.us; }
+	bool operator>=(const RC433HQMicroseconds &that) const { return us >= that.us; }
+
+	// addition of absolute time and difference via +=
+	RC433HQMicroseconds &operator+=(const RC433HQMicrosecondsDiff &diff) { us += diff.us; return *this; }
+
+	// addition of absolute time and difference via binary + operator
+	const RC433HQMicroseconds operator+(const RC433HQMicrosecondsDiff &diff) const { RC433HQMicroseconds result = *this; result += diff; return result; }
+
+	// subtraction of the same type produces difference
+	const RC433HQMicrosecondsDiff operator-(const RC433HQMicroseconds &that) const { RC433HQMicrosecondsDiff result; result.us = us - that.us; return result; }
+
+	// subtraction of the difference produces absolut time
+	const RC433HQMicroseconds operator-(const RC433HQMicrosecondsDiff &that) const { RC433HQMicroseconds result; result.us = us - that.us; return result; }
+
+	// conversions 
+	word GetLoWord() const { return (us & 0xffff); }
+	word GetHiWord() const { return (us >> 16); }
+	unsigned long GetUnsignedLong() const { return us; }
+};
+
+class RC433HQTimeService {
+public:
+
+	// get the count of microseconds
+	static RC433HQMicroseconds GetTimeInMicroseconds() { return micros(); }
+
+	// delay in microseconds
+	static void SleepMicroseconds(RC433HQMicrosecondsDiff delay) { delayMicroseconds(delay.GetUnsignedLong()); }
+
+};
 
 //////////////////////////////////////////////////////////////////////////////////
 // IRC433Logger declaration
@@ -95,17 +189,17 @@ class RC433HQDataTransmitterBase {
 public:
 
 	// transmit the rising or falling edge and plan waiting after it
-	virtual void TransmitEdge(bool direction, RC433HQMicroseconds duration) = 0;
+	virtual void TransmitEdge(bool direction, RC433HQMicrosecondsDiff duration) = 0;
 
 	// transmit the pulse starting with rising edge
-	void TransmitPulse(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration)
+	void TransmitPulse(RC433HQMicrosecondsDiff highDuration, RC433HQMicrosecondsDiff lowDuration)
 	{
 		TransmitEdge(true, highDuration);
 		TransmitEdge(false, lowDuration);
 	}
 
 	// transmit the repeated pulses
-	void TransmitPulses(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration, size_t count)
+	void TransmitPulses(RC433HQMicrosecondsDiff highDuration, RC433HQMicrosecondsDiff lowDuration, size_t count)
 	{
 		for (size_t i = 0; i < count; i++) {
 			TransmitPulse(highDuration, lowDuration);
@@ -199,12 +293,12 @@ private:
 class RC433HQNoiseFilter: public IRC433PulseProcessor {
 private:
 	IRC433PulseProcessor &decoder;
-	RC433HQMicroseconds minPulseDuration;
+	RC433HQMicrosecondsDiff minPulseDuration;
 	bool lastEdgeValid;
 	RC433HQMicroseconds lastEdgeTime;
 	bool lastEdgeDirection;
 public:
-	RC433HQNoiseFilter(IRC433PulseProcessor &adecoder, RC433HQMicroseconds aminPulseDuration):
+	RC433HQNoiseFilter(IRC433PulseProcessor &adecoder, RC433HQMicrosecondsDiff aminPulseDuration):
 		decoder(adecoder), 
 		minPulseDuration(aminPulseDuration), 
 		lastEdgeValid(false) 
@@ -286,7 +380,7 @@ protected:
 	void StoreReceivedBit(byte bit);
 
 	// quality calculations
-	void CalculateDelta(RC433HQMicroseconds expected, RC433HQMicroseconds actual);
+	void CalculateDelta(RC433HQMicrosecondsDiff expected, RC433HQMicrosecondsDiff actual);
 	void ClearDelta();
 
 	// sending of the cached data
@@ -399,8 +493,8 @@ class RC433HQTransmitter: public RC433HQDataTransmitterBase {
 private:
 	int transmitterGpioPin;
 	bool inTransitionMode;
-	RC433HQMicroseconds maxDelayTolerance;
-	RC433HQMicroseconds totalDelayedEdgesDelayTime;
+	RC433HQMicrosecondsDiff maxDelayTolerance;
+	RC433HQMicrosecondsDiff totalDelayedEdgesDelayTime;
 	RC433HQTransmissionQualityStatistics *transmissionQualityStatistics;
 	bool durationFinishTimeValid;             // specifies whether we are waiting for the duration of the previous edge
 	RC433HQMicroseconds durationFinishTime;   // time in microseconds, when the duration of previous edge should finish
@@ -410,21 +504,21 @@ public:
 	~RC433HQTransmitter();
 
 	// initializes the data transmission. Data can be sent only if the transmission is started
-	void StartTransmission(RC433HQMicroseconds quietPeriodDurationBefore = 0, RC433HQMicroseconds amaxDelayTolerance = 0, RC433HQTransmissionQualityStatistics *atransmissionQualityStatistics = 0);
+	void StartTransmission(RC433HQMicrosecondsDiff quietPeriodDurationBefore = 0, RC433HQMicrosecondsDiff amaxDelayTolerance = 0, RC433HQTransmissionQualityStatistics *atransmissionQualityStatistics = 0);
 
 	// finalizes the data transmission
-	void EndTransmission(RC433HQMicroseconds quietPeriodDurationAfter = 0);
+	void EndTransmission(RC433HQMicrosecondsDiff quietPeriodDurationAfter = 0);
 
 	// transmit the rising or falling edge and plan waiting after it
-	virtual void TransmitEdge(bool direction, RC433HQMicroseconds duration);
+	virtual void TransmitEdge(bool direction, RC433HQMicrosecondsDiff duration);
 
 private:
 
 	// report the delay of the transition of the edge into the statistics
-	void ReportEdgeTransitionDelay(RC433HQMicroseconds delay);
+	void ReportEdgeTransitionDelay(RC433HQMicrosecondsDiff delay);
 
 	// plan wait for the duration
-	void PlanWaitForDuration(RC433HQMicroseconds duration);
+	void PlanWaitForDuration(RC433HQMicrosecondsDiff duration);
 
 	// if there was a duration of the previous edge or quiet period, wait for it to finish
 	void WaitForThePreviousDurationToFinish();

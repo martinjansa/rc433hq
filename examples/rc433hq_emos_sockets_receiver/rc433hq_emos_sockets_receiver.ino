@@ -58,7 +58,7 @@ static char *ByteToBinary(byte value, size_t bits = 8) {
 
 class ReceivedDataDumper {
 private:
-  unsigned long lastDump;
+  RC433HQMicroseconds lastDump;
 
 public:
   ReceivedDataDumper():
@@ -149,9 +149,9 @@ RC433HQNoiseFilter noiseFilter(buffer, 50);
 RC433HQReceiver receiver(noiseFilter, 2);
 
 // we will calculate and dump performance statistics every 10s
-static const unsigned long STATS_PERIOD = 10*1000;
+static const RC433HQMicroseconds STATS_PERIOD = 10*1000;
 
-unsigned long startTimeMillis;
+RC433HQMicroseconds startTimeMillis;
 
 unsigned long iterationsCount = 0;
 unsigned long totalProcessedCount = 0;

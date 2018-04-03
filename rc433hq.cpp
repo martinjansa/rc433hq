@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-bool EqualWithTolerance(RC433HQMicroseconds a, RC433HQMicroseconds b, RC433HQMicroseconds tolerance)
+bool EqualWithTolerance(RC433HQMicrosecondsDiff a, RC433HQMicrosecondsDiff b, RC433HQMicrosecondsDiff tolerance)
 {
     return ((a - tolerance) <= b) && (b <= (a + tolerance));
 }
@@ -74,8 +74,8 @@ void RC433HQPulseBuffer::ProcessData(size_t &reportedBufferUsedCount, size_t &re
                 // assert(usedCount >= 2);
 
                 // read the absolute time from the buffer
-                RC433HQMicroseconds timeLow = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
-                RC433HQMicroseconds timeHigh = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
+                unsigned long timeLow = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
+                unsigned long timeHigh = buffer[dataIndex]; dataIndex = CalculateNext(dataIndex); usedCount--; reportedBufferUsedCount++;
 
                 // calculate the time from two words
                 time = (timeHigh << 16) | timeLow;
@@ -174,7 +174,7 @@ void RC433HQPulseBuffer::HandleEdge(RC433HQMicroseconds time, bool direction)
         } else {
 
             // calculate the relative edge time from the current and last edge times
-            RC433HQMicroseconds relativeEdgeTime = time - lastStoredEdgeTime;
+            RC433HQMicrosecondsDiff relativeEdgeTime = time - lastStoredEdgeTime;
 
             // if the time is smaller than what fits into 15 bits
             if (relativeEdgeTime < 0x7fff) {
@@ -183,7 +183,7 @@ void RC433HQPulseBuffer::HandleEdge(RC433HQMicroseconds time, bool direction)
                 if (usedCount < bufferSize) {
 
                     // store the relative edge time
-                    buffer[freeIndex] = directionMask | BufferValue(relativeEdgeTime); freeIndex = CalculateNext(freeIndex);  // direction and 15 bits
+                    buffer[freeIndex] = directionMask | BufferValue(relativeEdgeTime.GetLoWord()); freeIndex = CalculateNext(freeIndex);  // direction and 15 bits
                     usedCount++;
                     lastStoredEdgeTime = time;
                     successfullyStored = true;
@@ -214,8 +214,8 @@ void RC433HQPulseBuffer::HandleEdge(RC433HQMicroseconds time, bool direction)
 void RC433HQPulseBuffer::StoreAbsolutTime(RC433HQMicroseconds time, BufferValue directionMask)
 {
     buffer[freeIndex] = directionMask | 0x7fff; freeIndex = CalculateNext(freeIndex);      // direction and marker
-    buffer[freeIndex] = BufferValue(time & 0xffff); freeIndex = CalculateNext(freeIndex);  // lower 2 bytes
-    buffer[freeIndex] = BufferValue((time >> 16) & 0xffff); freeIndex = CalculateNext(freeIndex);  // higher 2 bytes
+    buffer[freeIndex] = BufferValue(time.GetLoWord()); freeIndex = CalculateNext(freeIndex);  // lower 2 bytes
+    buffer[freeIndex] = BufferValue(time.GetHiWord()); freeIndex = CalculateNext(freeIndex);  // higher 2 bytes
     usedCount += 3;
 }
 
@@ -248,7 +248,7 @@ void RC433HQNoiseFilter::HandleEdge(RC433HQMicroseconds time, bool direction)
         }
 
         // calculate the duration of the last pulse
-        RC433HQMicroseconds duration = (time - lastEdgeTime);
+        RC433HQMicrosecondsDiff duration = (time - lastEdgeTime);
 
         // if the last pulse was to short
         if (duration < minPulseDuration) {
@@ -295,8 +295,8 @@ void RC433HQBasicSyncPulseDecoder::HandleEdge(RC433HQMicroseconds time, bool dir
             LOG_MESSAGE("Previous rising and falling edge were detected.\n");
 
             // calcuate the high and low durations
-            RC433HQMicroseconds highDuration = previousFallingEdgeTime - previousRisingEdgeTime;
-            RC433HQMicroseconds lowDuration = time - previousFallingEdgeTime;
+            RC433HQMicrosecondsDiff highDuration = previousFallingEdgeTime - previousRisingEdgeTime;
+            RC433HQMicrosecondsDiff lowDuration = time - previousFallingEdgeTime;
 
             // if the last pulse represented a 1
             if (syncDetected && EqualWithTolerance(highDuration, oneFirstUs, toleranceUs) && EqualWithTolerance(lowDuration, oneSecondUs, toleranceUs)) {
@@ -407,14 +407,14 @@ void RC433HQBasicSyncPulseDecoder::HandleMissedEdges()
     syncDetected = true;
 }
 
-void RC433HQBasicSyncPulseDecoder::CalculateDelta(RC433HQMicroseconds expected, RC433HQMicroseconds actual)
+void RC433HQBasicSyncPulseDecoder::CalculateDelta(RC433HQMicrosecondsDiff expected, RC433HQMicrosecondsDiff actual)
 {
     if (toleranceUs != 0) {
         double delta;
         if (expected < actual) {
-            delta = actual - expected;
+            delta = (actual - expected).AsDouble();
         } else {
-            delta = expected - actual;
+            delta = (expected - actual).AsDouble();
         }
         deltaPowerSum += (delta * delta);
     }
@@ -572,7 +572,7 @@ void RC433HQReceiver::HandleInterrupt()
 void RC433HQReceiver::HandleInterruptInternal()
 {
     // get the current time
-    RC433HQMicroseconds now = micros();
+    RC433HQMicroseconds now = RC433HQTimeService::GetTimeInMicroseconds();
 
     // get the status of the pin
     int pinState = digitalRead(receiverGpioPin);
@@ -605,7 +605,7 @@ RC433HQTransmitter::~RC433HQTransmitter()
 }
 
 // initializes the data transmission. Data can be sent only if the transmission is started
-void RC433HQTransmitter::StartTransmission(RC433HQMicroseconds quietPeriodDurationBefore, RC433HQMicroseconds amaxDelayTolerance, RC433HQTransmissionQualityStatistics *atransmissionQualityStatistics)
+void RC433HQTransmitter::StartTransmission(RC433HQMicrosecondsDiff quietPeriodDurationBefore, RC433HQMicrosecondsDiff amaxDelayTolerance, RC433HQTransmissionQualityStatistics *atransmissionQualityStatistics)
 {
     // assert(inTransitionMode == false);
 
@@ -635,7 +635,7 @@ void RC433HQTransmitter::StartTransmission(RC433HQMicroseconds quietPeriodDurati
 }
 
 // finalizes the data transmission
-void RC433HQTransmitter::EndTransmission(RC433HQMicroseconds quietPeriodDurationAfter)
+void RC433HQTransmitter::EndTransmission(RC433HQMicrosecondsDiff quietPeriodDurationAfter)
 {
     // assert(inTransitionMode == true);
 
@@ -643,7 +643,7 @@ void RC433HQTransmitter::EndTransmission(RC433HQMicroseconds quietPeriodDuration
     if (transmissionQualityStatistics) {
 
         // TODO: transmissionQualityStatistics
-        transmissionQualityStatistics->averageDelay = double(totalDelayedEdgesDelayTime) / transmissionQualityStatistics->countOfDelayedEdges;
+        transmissionQualityStatistics->averageDelay = totalDelayedEdgesDelayTime.AsDouble() / transmissionQualityStatistics->countOfDelayedEdges;
     }
 
     // wait for the previous duration to finish
@@ -665,7 +665,7 @@ void RC433HQTransmitter::EndTransmission(RC433HQMicroseconds quietPeriodDuration
 }
 
 // transmit the rising or falling edge and plan waiting after it
-void RC433HQTransmitter::TransmitEdge(bool direction, RC433HQMicroseconds duration)
+void RC433HQTransmitter::TransmitEdge(bool direction, RC433HQMicrosecondsDiff duration)
 {
     // wait for the previous duration to finish
     WaitForThePreviousDurationToFinish();
@@ -678,7 +678,7 @@ void RC433HQTransmitter::TransmitEdge(bool direction, RC433HQMicroseconds durati
 }
 
 // report the delay of the transition of the edge into the statistics
-void RC433HQTransmitter::ReportEdgeTransitionDelay(RC433HQMicroseconds delay)
+void RC433HQTransmitter::ReportEdgeTransitionDelay(RC433HQMicrosecondsDiff delay)
 {
     // if the statistics structure is provided
     if (transmissionQualityStatistics) {
@@ -706,7 +706,7 @@ void RC433HQTransmitter::ReportEdgeTransitionDelay(RC433HQMicroseconds delay)
 }
 
 // plan wait for the duration
-void RC433HQTransmitter::PlanWaitForDuration(RC433HQMicroseconds duration)
+void RC433HQTransmitter::PlanWaitForDuration(RC433HQMicrosecondsDiff duration)
 {
     // assert(inTransitionMode == true);
 
@@ -714,7 +714,7 @@ void RC433HQTransmitter::PlanWaitForDuration(RC433HQMicroseconds duration)
     if (!durationFinishTimeValid) {
 
         // initialize with the current time
-        durationFinishTime = micros();
+        durationFinishTime = RC433HQTimeService::GetTimeInMicroseconds();
 
         // valid since now
         durationFinishTimeValid = true;
@@ -728,30 +728,28 @@ void RC433HQTransmitter::PlanWaitForDuration(RC433HQMicroseconds duration)
 void RC433HQTransmitter::WaitForThePreviousDurationToFinish()
 {
     // initialize the delay value as there is no delay
-    RC433HQMicroseconds delay = 0;
+    RC433HQMicrosecondsDiff delay = 0;
 
     // if we are waiting for the duration after the previous edge to finish
     if (durationFinishTimeValid) {
 
-        // TODO: durationFinishTime
-
         // get the current time in us
-        RC433HQMicroseconds now = micros();
+        RC433HQMicroseconds now = RC433HQTimeService::GetTimeInMicroseconds();
 
         // calculate time left till end of the duration
-        RC433HQMicroseconds durationLeftTime = durationFinishTime - now;
+        RC433HQMicrosecondsDiff durationLeftTime = durationFinishTime - now;
 
         // if the time difference is smaller than 1 minute, then we have not yet passed the target time and the subtraction did not overflow
-        if (durationLeftTime < RC433HQMicroseconds(60000000)) {
+        if (durationLeftTime < RC433HQMicrosecondsDiff(60000000)) {
 
             // if there is still some time to wait
             if (durationLeftTime > 0) {
 
                 // wait 
-                delayMicroseconds(durationLeftTime);
+                RC433HQTimeService::SleepMicroseconds(durationLeftTime);
 
                 // get the current time again (just for case the delay was not exact and we need to report delay in edge)
-                now = micros();
+                now = RC433HQTimeService::GetTimeInMicroseconds();
             }
         }
 

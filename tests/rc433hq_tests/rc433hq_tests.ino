@@ -32,19 +32,19 @@ public:
   {
   }
 
-  void SendEdge(bool direction, RC433HQMicroseconds delayAfter)
+  void SendEdge(bool direction, RC433HQMicrosecondsDiff delayAfter)
   {
     decoder.HandleEdge(lastPulseStart, direction);
     lastPulseStart += delayAfter;
   }
 
-  void GeneratePulse(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration)
+  void GeneratePulse(RC433HQMicrosecondsDiff highDuration, RC433HQMicrosecondsDiff lowDuration)
   {
     SendEdge(true, highDuration);
     SendEdge(false, lowDuration);
   }
 
-  void GeneratePulses(RC433HQMicroseconds highDuration, RC433HQMicroseconds lowDuration, size_t count)
+  void GeneratePulses(RC433HQMicrosecondsDiff highDuration, RC433HQMicrosecondsDiff lowDuration, size_t count)
   {
     for (size_t i = 0; i < count; i++) {
       GeneratePulse(highDuration, lowDuration);
@@ -148,7 +148,7 @@ private:
   size_t bufferCapacity;
   size_t bufferSize;
   bool *directions;
-  RC433HQMicroseconds *durations;
+  RC433HQMicrosecondsDiff *durations;
 
 public:
   TransmitterMock(size_t abufferCapacity):
@@ -156,7 +156,7 @@ public:
     bufferSize(0)
   {
     directions = new bool [bufferCapacity];
-    durations = new RC433HQMicroseconds [bufferCapacity];
+    durations = new RC433HQMicrosecondsDiff [bufferCapacity];
   }
 
   ~TransmitterMock()
@@ -165,7 +165,7 @@ public:
     delete [] directions; directions = 0;
   }
 
-	virtual void TransmitEdge(bool direction, RC433HQMicroseconds duration)
+	virtual void TransmitEdge(bool direction, RC433HQMicrosecondsDiff duration)
   {
     // if there is space in the buffers
     if (directions && durations && bufferSize < bufferCapacity) {
@@ -175,7 +175,7 @@ public:
     bufferSize++;
   }
 
-  void AssertEdgesTransmitted(const bool *expectedDirections, const RC433HQMicroseconds *expectedDurations, size_t expectedCount)
+  void AssertEdgesTransmitted(const bool *expectedDirections, const RC433HQMicrosecondsDiff *expectedDurations, size_t expectedCount)
   {
     assertEqual(bufferSize, expectedCount);
     for (size_t i = 0; i < bufferSize; i++) {
@@ -568,7 +568,7 @@ test(BasicPulseEncoder_ShouldEncodeOneBit)
   
   // then
   const bool expectedDirections [] = { true, false, true, false };
-  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 30, 10 };
+  const RC433HQMicrosecondsDiff expectedDurations[] = { 40, 40, 30, 10 };
   transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 4);
 }
 
@@ -585,7 +585,7 @@ test(BasicPulseEncoder_ShouldEncodeZeroBit)
   
   // then
   const bool expectedDirections [] = { true, false, true, false };
-  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 10, 30 };
+  const RC433HQMicrosecondsDiff expectedDurations[] = { 40, 40, 10, 30 };
   transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 4);
 }
 
@@ -602,7 +602,7 @@ test(BasicPulseEncoder_ShouldEncode8Bits)
   
   // then
   const bool expectedDirections [] = { true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false };
-  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30 };
+  const RC433HQMicrosecondsDiff expectedDurations[] = { 40, 40, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30 };
   transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 18);
 }
 
@@ -619,7 +619,7 @@ test(BasicPulseEncoder_ShouldEncode16Bits)
   
   // then
   const bool expectedDirections [] = { true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false };
-  const RC433HQMicroseconds expectedDurations[] = { 40, 40, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10 };
+  const RC433HQMicrosecondsDiff expectedDurations[] = { 40, 40, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10, 10, 30, 30, 10 };
   transmitterMock.AssertEdgesTransmitted(expectedDirections, expectedDurations, 34);
 }
 

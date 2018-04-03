@@ -38,4 +38,8 @@ unsigned long millis() {
 
 #include "rc433hq_tests.ino"
 
+// overloading streaming operator for debugging
+std::ostream &operator<<(std::ostream &output, const RC433HQMicroseconds &that) { output << that.GetUnsignedLong(); return output; }
+std::ostream &operator<<(std::ostream &output, const RC433HQMicrosecondsDiff &that) { output << that.GetUnsignedLong(); return output; }
+
 #endif
