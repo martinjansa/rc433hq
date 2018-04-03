@@ -143,7 +143,7 @@ RC433PulseSignalSplitter signalSplitter(decoderA, decoderB);
 RC433HQPulseBuffer buffer(signalSplitter, 256);
 
 // the instance of noise filter, that ignores all the very short pulses and passes the clean data to decoder
-RC433HQNoiseFilter noiseFilter(buffer, 3);
+RC433HQNoiseFilter noiseFilter(buffer, 50);
 
 // the 433 MHz receiver instance. Passes data to noise filter.
 RC433HQReceiver receiver(noiseFilter, 2);
